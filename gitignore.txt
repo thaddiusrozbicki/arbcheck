@@ -1,0 +1,28 @@
+# Raw poller output. Never commit this, it gets huge fast.
+data/raw/*
+!data/raw/.gitkeep
+
+# Secrets
+.env
+*.pem
+*.key
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
