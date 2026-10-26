@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "id": "senate-2026-dem",
+    "name": "Will Democrats win the U.S. Senate in 2026? (Democratic Party)",
+    "category": "politics",
+    "kalshi_ticker": "CONTROLS-2026-D",
+    "poly_slug": "will-the-democratic-party-control-the-senate-after-the-2026-midterm-elections",
+    "poly_yes_token": "113287701564209339913693347405685749986285999146352375265161592243948562084773",
+    "poly_no_token": "107118433685650702332040991454078902188473746599223732907923581436160160612542",
+    "resolution_date": "2027-02-01",
+    "kalshi_rules_url": "https://kalshi.com/markets/controls",
+    "poly_rules_url": "https://polymarket.com/event/which-party-will-win-the-senate-in-2026",
+    "rule_notes": "Kalshi settles early on a consensus of media calls, otherwise on the party of the Senate President pro tempore on Feb 1, 2027. Polymarket counts voting seats won, with independents counted for the party they caucus with. A 50-50 split goes to the party holding the Vice Presidency, and the first President pro tempore is the final fallback. Runoffs count, and it can stay open until Jan 4, 2027 if independent caucusing is unclear. Differences: Kalshi's summary does not spell out the 50-50 case, a post-election party switch counts on Kalshi but not Polymarket, and settlement timing can differ. Likely settles in November.",
+    "active": true
+  },
+  {
+    "id": "house-2026-dem",
+    "name": "Will Democrats win the House in 2026? (Democratic Party)",
+    "category": "politics",
+    "kalshi_ticker": "CONTROLH-2026-D",
+    "poly_slug": "will-the-democratic-party-control-the-house-after-the-2026-midterm-elections",
+    "poly_yes_token": "83247781037352156539108067944461291821683755894607244160607042790356561625563",
+    "poly_no_token": "33156410999665902694791064431724433042010245771106314074312009703157423879038",
+    "resolution_date": "2027-02-01",
+    "kalshi_rules_url": "https://kalshi.com/markets/controlh",
+    "poly_rules_url": "https://polymarket.com/event/which-party-will-win-the-house-in-2026",
+    "rule_notes": "Kalshi settles early on a consensus of media calls, otherwise on the party of the Speaker on Feb 1, 2027. Polymarket counts voting seats won, with independents counted for the party they caucus with. With no majority, it goes to the party of the first elected Speaker. Runoffs count, and it can stay open until Jan 4, 2027 if independent caucusing is unclear. Differences: a post-election party switch or a Speaker from the minority party counts on Kalshi but not Polymarket, and settlement timing can differ. Likely settles in November.",
+    "active": true
+  }
+]

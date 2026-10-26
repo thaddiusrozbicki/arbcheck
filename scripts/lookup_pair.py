@@ -1,12 +1,15 @@
 """Find the IDs you need for pairs.json without clicking through raw JSON.
 
-Run from the repo root. All three commands use public endpoints, no keys.
+Run from the repo root. Every command uses public endpoints, no keys.
 
   1. See every market inside a Kalshi event (event ticker or a market ticker):
        python scripts/lookup_pair.py kalshi KXNFLGAME-26NOV01KCBUF
 
   2. See every market inside a Polymarket event (slug or full URL):
        python scripts/lookup_pair.py poly https://polymarket.com/event/some-event-slug
+
+     Can't find it on the site? Search Polymarket by keywords instead:
+       python scripts/lookup_pair.py search "chiefs bills"
 
   3. Once you know the exact market on each side, print a pairs.json entry:
        python scripts/lookup_pair.py stub --kalshi KXNFLGAME-26NOV01KCBUF-KC \\
@@ -42,19 +45,31 @@ class LookupFailed(Exception):
 # ---------- helpers that don't touch the network (these are unit tested) ----------
 
 def extract_poly_slug(text):
-    """Accept a bare slug or a polymarket.com URL and return the slug.
+    """Accept a bare slug or any Polymarket URL and return the slug.
 
-    /event/<event-slug>             -> event-slug
-    /event/<event-slug>/<market>    -> market (the more specific one)
-    /market/<market-slug>           -> market-slug
+    The slug is always the last part of the path, which is the most specific:
+    polymarket.com/event/<event-slug>             -> event-slug
+    polymarket.com/event/<event-slug>/<market>    -> market
+    polymarket.us/sports/wta/<market-slug>        -> market-slug
     """
     text = text.strip()
-    if "polymarket.com" not in text:
+    if "polymarket." not in text and "://" not in text:
         return text.strip("/")
-    parts = [p for p in urlparse(text).path.split("/") if p]
-    if len(parts) >= 2 and parts[0] in ("event", "market"):
-        return parts[-1]
-    raise LookupFailed(f"Couldn't find a slug in {text}")
+    url = text if "://" in text else "https://" + text
+    parts = [p for p in urlparse(url).path.split("/") if p]
+    if not parts:
+        raise LookupFailed(f"Couldn't find a slug in {text}")
+    return parts[-1]
+
+
+def is_polymarket_us(text):
+    return "polymarket.us" in text.lower()
+
+
+US_NOTE = (
+    "Note: that's a Polymarket US link. ArbCheck reads international Polymarket data "
+    "(the Gamma and CLOB APIs), so this looks up the same slug there."
+)
 
 
 def parse_json_list(value):
@@ -181,7 +196,10 @@ def poly_markets(slug):
     data = get_json(f"{GAMMA_API}/events", {"slug": slug})
     if data:
         return data[0].get("markets") or []
-    raise LookupFailed(f"Nothing on Polymarket for slug '{slug}'")
+    raise LookupFailed(
+        f"Nothing on Polymarket for slug '{slug}'. Try searching instead:\n"
+        f'  python scripts/lookup_pair.py search "a few words from the market"'
+    )
 
 
 # ---------- commands ----------
@@ -206,6 +224,8 @@ def cmd_kalshi(args):
 
 
 def cmd_poly(args):
+    if is_polymarket_us(args.slug):
+        print(US_NOTE, file=sys.stderr)
     slug = extract_poly_slug(args.slug)
     markets = poly_markets(slug)
     print(f"\nPolymarket results for '{slug}':\n")
@@ -220,9 +240,28 @@ def cmd_poly(args):
     print("\nUse the market slug (not the event slug) in the stub command.")
 
 
+def cmd_search(args):
+    data = get_json(f"{GAMMA_API}/public-search", {"q": args.query})
+    events = (data or {}).get("events") or []
+    if not events:
+        raise LookupFailed(f'No Polymarket results for "{args.query}". Try fewer or different words.')
+
+    print(f'\nPolymarket events matching "{args.query}":\n')
+    for e in events[: args.limit]:
+        print(f"  event slug: {e.get('slug')}")
+        print(f"      {e.get('title')}")
+        print(f"      ends={e.get('endDate')}  closed={e.get('closed')}")
+        for m in e.get("markets") or []:
+            if m.get("slug"):
+                print(f"      market slug: {m.get('slug')}  ({m.get('question')})")
+    print("\nPass an event or market slug to the poly command to see token IDs.")
+
+
 def cmd_stub(args):
     k_market = kalshi_market(args.kalshi.strip().upper())
 
+    if is_polymarket_us(args.poly):
+        print(US_NOTE, file=sys.stderr)
     markets = poly_markets(extract_poly_slug(args.poly))
     if len(markets) != 1:
         options = "\n".join(f"  {m.get('slug')}: {m.get('question')}" for m in markets)
@@ -251,6 +290,11 @@ def main(argv=None):
     p = sub.add_parser("poly", help="list markets and token IDs for a Polymarket slug or URL")
     p.add_argument("slug", help="slug or polymarket.com URL")
     p.set_defaults(func=cmd_poly)
+
+    p = sub.add_parser("search", help="search Polymarket events by keywords")
+    p.add_argument("query", help='keywords in quotes, e.g. "chiefs bills"')
+    p.add_argument("--limit", type=int, default=10, help="max events to show")
+    p.set_defaults(func=cmd_search)
 
     p = sub.add_parser("stub", help="print a ready-to-paste pairs.json entry")
     p.add_argument("--kalshi", required=True, help="Kalshi MARKET ticker")
