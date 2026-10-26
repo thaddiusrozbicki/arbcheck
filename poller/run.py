@@ -5,13 +5,12 @@ import math
 import time
 
 from pairs import load_pairs
+from poller.kalshi import collect_kalshi
 from poller.polymarket import collect_polymarket
-# import kalshi
 
 logger = logging.getLogger(__name__)
 
-# kalshi collector
-COLLECTORS = {"polymarket": collect_polymarket}
+COLLECTORS = {"kalshi": collect_kalshi, "polymarket": collect_polymarket}
 
 
 def poll_once():
