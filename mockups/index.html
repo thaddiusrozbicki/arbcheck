@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pairs | ArbCheck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">ArbCheck</a>
+      <nav class="nav" aria-label="Main">
+        <a href="index.html" aria-current="page">Pairs</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="results.html">Results</a>
+        <a href="admin.html">Admin</a>
+      </nav>
+      <p class="feed"><strong>Sample data</strong>, Nov 1, 2026, 10:42 AM ET<br>Last poll 2 seconds ago</p>
+    </div>
+  </header>
+  <main>
+    <div class="page-head">
+      <h1>Pairs</h1>
+      <p>The best price on each exchange for every matched pair, and how old each price is. Each row shows the cheaper of the two directions.</p>
+    </div>
+    <p class="summary">10 pairs. 1 has a trade plan right now, and 1 has a price too old to use.</p>
+      <ul class="legend" aria-label="How to read the bars">
+        <li><span class="swatch cost"></span>YES + NO price</li>
+        <li><span class="swatch fee"></span>Kalshi fee</li>
+        <li><span class="swatch gap"></span>Edge left under $1.00</li>
+        <li><span class="swatch over"></span>Over $1.00</li>
+        <li><span class="swatch dollar"></span>$1.00 payout</li>
+      </ul>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Pair</th>
+            <th scope="col">Kalshi</th>
+            <th scope="col">Polymarket</th>
+            <th scope="col">Cost against $1.00</th>
+            <th scope="col" class="num">Edge per pair</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pair-name">Democrats win Senate control</span><span class="pair-meta">Politics, resolves Feb 1, 2027</span></td>
+            <td><span class="price k">YES 63¢</span><span class="age">2s old</span></td>
+            <td><span class="price p">NO 36¢</span><span class="age">1s old</span></td>
+            <td><div class="meter" role="img" aria-label="YES plus NO is 99 cents plus 1.6 cents in fees"><span class="cost" style="width:50.0%"></span><span class="fee" style="left:50.0%;width:16.0%"></span><span class="over" style="left:60%;width:6.0%"></span><span class="dollar"></span></div></td>
+            <td class="num neg">−0.6¢</td>
+            <td><span class="status wiped">Fees wipe it out</span></td>
+          </tr>
+          <tr>
+            <td><span class="pair-name">Democrats win House control</span><span class="pair-meta">Politics, resolves Feb 1, 2027</span></td>
+            <td><span class="price k">NO 30¢</span><span class="age">2s old</span></td>
+            <td><span class="price p">YES 70¢</span><span class="age">3s old</span></td>
+            <td><div class="meter" role="img" aria-label="YES plus NO is 100 cents, no gap under one dollar"><span class="cost" style="width:60.0%"></span><span class="dollar"></span></div></td>
+            <td class="num muted">None</td>
+            <td><span class="status nogap">No gap</span></td>
+          </tr>
+          <tr>
+            <td><span class="pair-name"><a href="pair.html">Fed hikes 25 bps in December</a></span><span class="pair-meta">Economics, resolves Dec 9, 2026</span></td>
+            <td><span class="price k">YES 41¢</span><span class="age">1s old</span></td>
+            <td><span class="price p">NO 55¢</span><span class="age">2s old</span></td>
+            <td><div class="meter" role="img" aria-label="YES plus NO is 96 cents plus 1.7 cents in fees"><span class="cost" style="width:20.0%"></span><span class="fee" style="left:20.0%;width:17.0%"></span><span class="gap" style="left:37.0%;width:23.0%"></span><span class="dollar"></span></div></td>
+            <td class="num pos">+2.3¢</td>
+            <td><span class="status ready">Trade plan ready</span></td>
+          </tr>
+          <tr>
+            <td><span class="pair-name">Democrats win Texas Senate race</span><span class="pair-meta">Politics, resolves Jan 4, 2027</span></td>
+            <td><span class="price k">YES 62¢</span><span class="age">2s old</span></td>
+            <td><span class="price p">NO 37¢</span><span class="age">1s old</span></td>
+            <td><div class="meter" role="img" aria-label="YES plus NO is 99 cents plus 1.6 cents in fees"><span class="cost" style="width:50.0%"></span><span class="fee" style="left:50.0%;width:16.0%"></span><span class="over" style="left:60%;width:6.0%"></span><span class="dollar"></span></div></td>
+            <td class="num neg">−0.6¢</td>
+            <td><span class="status wiped">Fees wipe it out</span></td>
+          </tr>
+          <tr>
+            <td><span class="pair-name">Eagles beat Commanders</span><span class="pair-meta">Sports, resolves Nov 2, 2026</span></td>
+            <td><span class="price k">YES 57¢</span><span class="age">3s old</span></td>
+            <td><span class="price p">NO 43¢</span><span class="age">2s old</span></td>
+            <td><div class="meter" role="img" aria-label="YES plus NO is 100 cents, no gap under one dollar"><span class="cost" style="width:60.0%"></span><span class="dollar"></span></div></td>
+            <td class="num muted">None</td>
+            <td><span class="status nogap">No gap</span></td>
+          </tr>
+          <tr>
+            <td><span class="pair-name">Bills beat Ravens</span><span class="pair-meta">Sports, resolves Nov 1, 2026</span></td>
+            <td><span class="price k">YES 54¢</span><span class="age">1s old</span></td>
+            <td><span class="price p">NO 44¢</span><span class="age">1s old</span></td>
+            <td><div class="meter" role="img" aria-label="YES plus NO is 98 cents plus 1.7 cents in fees"><span class="cost" style="width:40.0%"></span><span class="fee" style="left:40.0%;width:17.0%"></span><span class="gap" style="left:57.0%;width:3.0%"></span><span class="dollar"></span></div></td>
+            <td class="num pos">+0.3¢</td>
+            <td><span class="status below">Below 1¢ minimum</span></td>
+          </tr>
+          <tr>
+            <td><span class="pair-name">Rams win Super Bowl LXI</span><span class="pair-meta">Sports, resolves Feb 15, 2027</span></td>
+            <td><span class="price k">YES 14¢</span><span class="age">2s old</span></td>
+            <td><span class="price p">NO 85¢</span><span class="age">3s old</span></td>
+            <td><div class="meter" role="img" aria-label="YES plus NO is 99 cents plus 0.8 cents in fees"><span class="cost" style="width:50.0%"></span><span class="fee" style="left:50.0%;width:8.0%"></span><span class="gap" style="left:58.0%;width:2.0%"></span><span class="dollar"></span></div></td>
+            <td class="num pos">+0.2¢</td>
+            <td><span class="status below">Below 1¢ minimum</span></td>
+          </tr>
+          <tr>
+            <td><span class="pair-name">Spurs win the 2027 NBA title</span><span class="pair-meta">Sports, resolves Jun 30, 2027</span></td>
+            <td><span class="price k">NO 78¢</span><span class="age">1s old</span></td>
+            <td><span class="price p">YES 21¢</span><span class="age">2s old</span></td>
+            <td><div class="meter" role="img" aria-label="YES plus NO is 99 cents plus 1.2 cents in fees"><span class="cost" style="width:50.0%"></span><span class="fee" style="left:50.0%;width:12.0%"></span><span class="over" style="left:60%;width:2.0%"></span><span class="dollar"></span></div></td>
+            <td class="num neg">−0.2¢</td>
+            <td><span class="status wiped">Fees wipe it out</span></td>
+          </tr>
+          <tr>
+            <td><span class="pair-name">Avalanche win the 2027 Stanley Cup</span><span class="pair-meta">Sports, resolves Jun 30, 2027</span></td>
+            <td><span class="price k">YES 13¢</span><span class="age">2s old</span></td>
+            <td><span class="price p">NO 86¢</span><span class="age is-stale">47s old</span></td>
+            <td><div class="meter is-stale" role="img" aria-label="YES plus NO is 99 cents, but the Polymarket price is too old to use"><span class="cost" style="width:50.0%"></span><span class="dollar"></span></div></td>
+            <td class="num muted">None</td>
+            <td><span class="status stale">Stale Polymarket price</span></td>
+          </tr>
+          <tr>
+            <td><span class="pair-name">Democrats win the 2028 presidency</span><span class="pair-meta">Politics, resolves Jan 20, 2029</span></td>
+            <td><span class="price k">YES 52¢</span><span class="age">1s old</span></td>
+            <td><span class="price p">NO 47¢</span><span class="age">2s old</span></td>
+            <td><div class="meter" role="img" aria-label="YES plus NO is 99 cents plus 1.7 cents in fees"><span class="cost" style="width:50.0%"></span><span class="fee" style="left:50.0%;width:17.0%"></span><span class="over" style="left:60%;width:7.0%"></span><span class="dollar"></span></div></td>
+            <td class="num neg">−0.7¢</td>
+            <td><span class="status wiped">Fees wipe it out</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted">Edge is what's left of $1.00 per YES and NO pair after Kalshi's taker fee. Polymarket fees are $0 in this sample. A pair gets a trade plan only when both prices are under 5 seconds old and the edge is at least 1¢.</p>
+  </main>
+</body>
+</html>
