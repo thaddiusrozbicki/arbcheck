@@ -28,10 +28,28 @@ pairs/loader.py           load_pairs(), use this instead of opening the file you
 poller/kalshi.py          Kalshi order book poller
 poller/polymarket.py      Polymarket order book poller
 poller/run.py             runs both pollers on a loop
+poller/orderbook.py       shared order book format and exchange converters
 scripts/lookup_pair.py    finds tickers and token IDs for new pairs
 tests/                    pytest tests
 data/raw/                 raw API responses (gitignored, never committed)
 ```
+
+## Shared order books (Week 2)
+
+`poller.orderbook.OrderBook` is the format the pricing engine can consume:
+`exchange`, `pair_id`, `market` (Kalshi ticker or Polymarket token ID),
+`outcome` (`YES`/`NO`), `asks`, and the original UTC `fetched_at` string.
+Each ask is an `AskLevel(price, size)`, using `Decimal` dollars and contracts.
+Asks are sorted cheapest first; zero sizes are omitted and an empty tuple means
+there is no available ask depth. Invalid prices or sizes reject the book.
+
+`normalize_kalshi(record)` returns YES and NO books by complementing opposite
+bids: a NO bid at $0.59 becomes a YES ask at $0.41, with the same size.
+`normalize_polymarket(record)` returns one book for the record's outcome token.
+Both consume the records returned by the existing collectors without changing
+raw response storage. `poller.run.poll_once()` returns the combined normalized
+books; the continuous runner currently logs collection and does not persist
+normalized books.
 
 ## How we work
 
