@@ -28,10 +28,25 @@ pairs/loader.py           load_pairs(), use this instead of opening the file you
 poller/kalshi.py          Kalshi order book poller
 poller/polymarket.py      Polymarket order book poller
 poller/run.py             runs both pollers on a loop
+poller/orderbook.py       shared order book format and exchange converters
 scripts/lookup_pair.py    finds tickers and token IDs for new pairs
 tests/                    pytest tests
 data/raw/                 raw API responses (gitignored, never committed)
 ```
+
+## Shared order books (Week 2)
+
+Both exchanges use the same `OrderBook` format:
+
+| Field | Meaning |
+|---|---|
+| `exchange` | `kalshi` or `polymarket`. |
+| `pair_id` | The matched pair's ID from `pairs.json`. |
+| `market` | Kalshi ticker or Polymarket token ID. |
+| `outcome` | `YES` or `NO`. |
+| `asks` | Available buy offers, sorted cheapest first. Each `AskLevel` has a `price` in dollars and a `size` in contracts, both stored as `Decimal`. |
+| `fetched_at` | When the data was received, as a UTC timestamp string. |
+
 
 ## How we work
 
