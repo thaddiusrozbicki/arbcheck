@@ -36,20 +36,17 @@ data/raw/                 raw API responses (gitignored, never committed)
 
 ## Shared order books (Week 2)
 
-`poller.orderbook.OrderBook` is the format the pricing engine can consume:
-`exchange`, `pair_id`, `market` (Kalshi ticker or Polymarket token ID),
-`outcome` (`YES`/`NO`), `asks`, and the original UTC `fetched_at` string.
-Each ask is an `AskLevel(price, size)`, using `Decimal` dollars and contracts.
-Asks are sorted cheapest first; zero sizes are omitted and an empty tuple means
-there is no available ask depth. Invalid prices or sizes reject the book.
+Both exchanges use the same `OrderBook` format:
 
-`normalize_kalshi(record)` returns YES and NO books by complementing opposite
-bids: a NO bid at $0.59 becomes a YES ask at $0.41, with the same size.
-`normalize_polymarket(record)` returns one book for the record's outcome token.
-Both consume the records returned by the existing collectors without changing
-raw response storage. `poller.run.poll_once()` returns the combined normalized
-books; the continuous runner currently logs collection and does not persist
-normalized books.
+| Field | Meaning |
+|---|---|
+| `exchange` | `kalshi` or `polymarket`. |
+| `pair_id` | The matched pair's ID from `pairs.json`. |
+| `market` | Kalshi ticker or Polymarket token ID. |
+| `outcome` | `YES` or `NO`. |
+| `asks` | Available buy offers, sorted cheapest first. Each `AskLevel` has a `price` in dollars and a `size` in contracts, both stored as `Decimal`. |
+| `fetched_at` | When the data was received, as a UTC timestamp string. |
+
 
 ## How we work
 
