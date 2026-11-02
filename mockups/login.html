@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin sign in | ArbCheck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">ArbCheck</a>
+      <nav class="nav" aria-label="Main">
+        <a href="index.html">Pairs</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="results.html">Results</a>
+        <a href="admin.html" aria-current="page">Admin</a>
+      </nav>
+      <p class="feed"><strong>Sample data</strong>, Nov 1, 2026, 10:42 AM ET<br>Last poll 2 seconds ago</p>
+    </div>
+  </header>
+  <main>
+    <div class="login">
+      <div class="panel">
+        <h1>Admin sign in</h1>
+        <p>Viewing prices doesn't need an account. Signing in lets you add, pause, and verify pairs.</p>
+        <form action="admin.html" onsubmit="location.href = this.action; return false">
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password">
+          </div>
+          <button class="btn" type="submit">Sign in</button>
+        </form>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

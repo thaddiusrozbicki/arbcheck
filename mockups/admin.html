@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin | ArbCheck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">ArbCheck</a>
+      <nav class="nav" aria-label="Main">
+        <a href="index.html">Pairs</a>
+        <a href="opportunities.html">Opportunities</a>
+        <a href="results.html">Results</a>
+        <a href="admin.html" aria-current="page">Admin</a>
+      </nav>
+      <p class="feed"><strong>Sample data</strong>, Nov 1, 2026, 10:42 AM ET<br>Last poll 2 seconds ago</p>
+    </div>
+  </header>
+  <main>
+    <div class="page-head">
+      <h1>Admin</h1>
+      <div class="signed-in">Signed in as admin <a href="login.html">Sign out</a></div>
+    </div>
+
+    <section class="panel" aria-labelledby="add-h">
+      <h2 id="add-h">Add a pair</h2>
+      <p class="muted small">Find the ticker and slug with <code>python scripts/lookup_pair.py</code>.</p>
+      <form class="form-grid" action="#" onsubmit="return false">
+        <div class="field">
+          <label for="pid">Pair ID</label>
+          <input id="pid" name="pid" placeholder="nfl-bills-nov01">
+        </div>
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" name="name" placeholder="Bills beat Ravens">
+        </div>
+        <div class="field">
+          <label for="ticker">Kalshi market ticker</label>
+          <input id="ticker" name="ticker" placeholder="KXNFLGAME-26NOV01BALBUF-BUF">
+        </div>
+        <div class="field">
+          <label for="slug">Polymarket market slug</label>
+          <input id="slug" name="slug" placeholder="nfl-bal-buf-2026-11-01">
+        </div>
+        <div class="field wide">
+          <label for="yes">Polymarket outcome that means YES <span class="hint">Leave blank for Yes/No markets. The token IDs are looked up from the slug.</span></label>
+          <input id="yes" name="yes" placeholder="Bills">
+        </div>
+        <div class="field">
+          <label for="cat">Category</label>
+          <select id="cat" name="cat">
+            <option>Sports</option><option>Politics</option><option>Economics</option>
+            <option>Crypto</option><option>Weather</option><option>Culture</option><option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="res">Resolution date</label>
+          <input id="res" name="res" type="date">
+        </div>
+        <div class="field">
+          <label for="krules">Kalshi rules link</label>
+          <input id="krules" name="krules" placeholder="https://kalshi.com/markets/kxnflgame">
+        </div>
+        <div class="field">
+          <label for="prules">Polymarket rules link</label>
+          <input id="prules" name="prules" placeholder="https://polymarket.com/event/nfl-bal-buf-2026-11-01">
+        </div>
+        <div class="field wide">
+          <label for="notes">Rule notes <span class="hint">Where the two exchanges' rules differ</span></label>
+          <textarea id="notes" name="notes"></textarea>
+        </div>
+        <div class="form-actions field wide" style="flex-direction:row">
+          <button class="btn" type="submit">Add pair</button>
+          <span class="small muted">The poller picks it up on its next cycle.</span>
+        </div>
+      </form>
+    </section>
+
+    <h2>Pairs</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Pair ID</th>
+            <th scope="col">Kalshi ticker</th>
+            <th scope="col">Polymarket slug</th>
+            <th scope="col">Resolves</th>
+            <th scope="col">Polling</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="pair-name nowrap">senate-2026-dem</td>
+            <td class="nowrap">CONTROLS-2026-D</td>
+            <td><span class="slug" title="will-the-democratic-party-control-the-senate-after-the-2026-midterm-elections">will-the-democratic-party-control-the-senate-after-the-2026-midterm-elections</span></td>
+            <td class="nowrap">Feb 1, 2027</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+          <tr>
+            <td class="pair-name nowrap">house-2026-dem</td>
+            <td class="nowrap">CONTROLH-2026-D</td>
+            <td><span class="slug" title="will-the-democratic-party-control-the-house-after-the-2026-midterm-elections">will-the-democratic-party-control-the-house-after-the-2026-midterm-elections</span></td>
+            <td class="nowrap">Feb 1, 2027</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+          <tr>
+            <td class="pair-name nowrap">fed-dec-2026-hike25</td>
+            <td class="nowrap">KXFEDDECISION-26DEC-H25</td>
+            <td><span class="slug" title="will-the-fed-increase-interest-rates-by-25-bps-after-the-december-2026-meeting-20260729232808636">will-the-fed-increase-interest-rates-by-25-bps-after-the-december-2026-meeting-20260729232808636</span></td>
+            <td class="nowrap">Dec 9, 2026</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+          <tr>
+            <td class="pair-name nowrap">tx-senate-2026-dem</td>
+            <td class="nowrap">SENATETX-26-D</td>
+            <td><span class="slug" title="will-the-democrats-win-the-texas-senate-race-in-2026">will-the-democrats-win-the-texas-senate-race-in-2026</span></td>
+            <td class="nowrap">Jan 4, 2027</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+          <tr>
+            <td class="pair-name nowrap">nfl-eagles-nov01</td>
+            <td class="nowrap">KXNFLGAME-26NOV01PHIWAS-PHI</td>
+            <td><span class="slug" title="nfl-phi-was-2026-11-02">nfl-phi-was-2026-11-02</span></td>
+            <td class="nowrap">Nov 2, 2026</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+          <tr>
+            <td class="pair-name nowrap">nfl-bills-nov01</td>
+            <td class="nowrap">KXNFLGAME-26NOV01BALBUF-BUF</td>
+            <td><span class="slug" title="nfl-bal-buf-2026-11-01">nfl-bal-buf-2026-11-01</span></td>
+            <td class="nowrap">Nov 1, 2026</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+          <tr>
+            <td class="pair-name nowrap">sb-2027-rams</td>
+            <td class="nowrap">KXSB-27-LAR</td>
+            <td><span class="slug" title="will-the-los-angeles-rams-win-the-2027-nfl-league-championship">will-the-los-angeles-rams-win-the-2027-nfl-league-championship</span></td>
+            <td class="nowrap">Feb 15, 2027</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+          <tr>
+            <td class="pair-name nowrap">nba-2027-spurs</td>
+            <td class="nowrap">KXNBA-27-SAS</td>
+            <td><span class="slug" title="will-san-antonio-spurs-win-the-2027-nba-finals">will-san-antonio-spurs-win-the-2027-nba-finals</span></td>
+            <td class="nowrap">Jun 30, 2027</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+          <tr>
+            <td class="pair-name nowrap">nhl-2027-avalanche</td>
+            <td class="nowrap">KXNHL-27-COL</td>
+            <td><span class="slug" title="will-the-colorado-avalanche-be-named-the-2026-27-nhl-stanley-cup-champion-20260612185657079">will-the-colorado-avalanche-be-named-the-2026-27-nhl-stanley-cup-champion-20260612185657079</span></td>
+            <td class="nowrap">Jun 30, 2027</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+          <tr>
+            <td class="pair-name nowrap">pres-2028-dem</td>
+            <td class="nowrap">KXPRESPARTY-2028-D</td>
+            <td><span class="slug" title="will-the-democrats-win-the-2028-us-presidential-election">will-the-democrats-win-the-2028-us-presidential-election</span></td>
+            <td class="nowrap">Jan 20, 2029</td>
+            <td class="nowrap">Active <button class="btn quiet" type="button">Pause</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>
