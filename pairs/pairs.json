@@ -11,7 +11,7 @@
     "kalshi_rules_url": "https://kalshi.com/markets/controls",
     "poly_rules_url": "https://polymarket.com/event/which-party-will-win-the-senate-in-2026",
     "rule_notes": "Kalshi settles early on a consensus of media calls, otherwise on the party of the Senate President pro tempore on Feb 1, 2027. Polymarket counts voting seats won, with independents counted for the party they caucus with. A 50-50 split goes to the party holding the Vice Presidency, and the first President pro tempore is the final fallback. Runoffs count, and it can stay open until Jan 4, 2027 if independent caucusing is unclear. Differences: Kalshi's summary does not spell out the 50-50 case, a post-election party switch counts on Kalshi but not Polymarket, and settlement timing can differ. Likely settles in November.",
-    "active": true
+    "active": false
   },
   {
     "id": "house-2026-dem",
@@ -25,7 +25,7 @@
     "kalshi_rules_url": "https://kalshi.com/markets/controlh",
     "poly_rules_url": "https://polymarket.com/event/which-party-will-win-the-house-in-2026",
     "rule_notes": "Kalshi settles early on a consensus of media calls, otherwise on the party of the Speaker on Feb 1, 2027. Polymarket counts voting seats won, with independents counted for the party they caucus with. With no majority, it goes to the party of the first elected Speaker. Runoffs count, and it can stay open until Jan 4, 2027 if independent caucusing is unclear. Differences: a post-election party switch or a Speaker from the minority party counts on Kalshi but not Polymarket, and settlement timing can differ. Likely settles in November.",
-    "active": true
+    "active": false
   },
   {
     "id": "fed-dec-2026-hike25",
@@ -53,7 +53,7 @@
     "kalshi_rules_url": "https://kalshi.com/markets/senatetx",
     "poly_rules_url": "https://polymarket.com/event/texas-senate-election-winner",
     "rule_notes": "Kalshi pays Yes if a Democrat is sworn in as Texas senator for the term starting in 2027, with early settlement once a consensus of media organizations projects the winner. Polymarket resolves on the election winner, runoffs included, once AP, Fox News, and NBC all call it, otherwise on official certification. Independents never count as a party on Polymarket. Differences: Kalshi keys on who is sworn in and Polymarket on who wins, so a winner who is never seated would split them, and the media-call tests differ. Likely settles in early November. Date set to just after the January swearing-in.",
-    "active": true
+    "active": false
   },
   {
     "id": "nfl-eagles-nov01",
@@ -67,7 +67,7 @@
     "kalshi_rules_url": "https://kalshi.com/markets/kxnflgame",
     "poly_rules_url": "https://polymarket.com/event/nfl-phi-was-2026-11-02",
     "rule_notes": "Both resolve on the official result of the Nov 1, 2026 Eagles vs Commanders game, overtime included, and a tie pays 50/50 on both. Difference: if the game is postponed and not started within 48 hours, Kalshi settles at a fair price, while Polymarket stays open until the game is played and only goes 50/50 if it is canceled with no makeup. Kickoff is 8:20 PM ET, so it settles after midnight UTC.",
-    "active": true
+    "active": false
   },
   {
     "id": "nfl-bills-nov01",
@@ -81,7 +81,7 @@
     "kalshi_rules_url": "https://kalshi.com/markets/kxnflgame",
     "poly_rules_url": "https://polymarket.com/event/nfl-bal-buf-2026-11-01",
     "rule_notes": "Both resolve on the official result of the Nov 1, 2026 Ravens vs Bills game, overtime included, and a tie pays 50/50 on both. Difference: if the game is postponed and not started within 48 hours, Kalshi settles at a fair price, while Polymarket stays open until the game is played and only goes 50/50 if it is canceled with no makeup.",
-    "active": true
+    "active": false
   },
   {
     "id": "sb-2027-rams",
