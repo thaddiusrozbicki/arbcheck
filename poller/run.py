@@ -8,6 +8,7 @@ from pairs import load_pairs
 from poller.kalshi import collect_kalshi
 from poller.polymarket import collect_polymarket
 from poller.orderbook import normalize_kalshi, normalize_polymarket
+from poller.opportunities import CycleChecker, finish_log, log_cycle
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,9 @@ def main(argv=None):
         help="seconds between cycle starts (default: 10); slow cycles do not overlap",
     )
     parser.add_argument("--once", action="store_true", help="run one cycle and exit")
+    parser.add_argument("--no-opportunities", action="store_true",
+        help="skip the opportunity log and only save raw data",
+    )
     args = parser.parse_args(argv)
     if not math.isfinite(args.interval) or args.interval <= 0:
         parser.error("--interval must be a finite number greater than zero")
@@ -53,15 +57,21 @@ def main(argv=None):
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
+    checker = None if args.no_opportunities else CycleChecker()
     try:
         while True:
             started = time.monotonic()
-            poll_once()
+            books = poll_once()
+            if checker is not None:
+                log_cycle(checker, books)
             if args.once:
                 break
             time.sleep(max(0, args.interval - (time.monotonic() - started)))
     except KeyboardInterrupt:
         logger.info("Poller stopped")
+    finally:
+        if checker is not None:
+            finish_log(checker)
 
 
 if __name__ == "__main__":
