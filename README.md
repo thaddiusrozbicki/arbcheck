@@ -29,6 +29,8 @@ poller/kalshi.py          Kalshi order book poller
 poller/polymarket.py      Polymarket order book poller
 poller/run.py             runs both pollers on a loop
 poller/orderbook.py       shared order book format and exchange converters
+poller/sizing.py          depth-aware sizing for both complementary directions
+poller/fees.py            replaceable sample fee model (development only)
 scripts/lookup_pair.py    finds tickers and token IDs for new pairs
 tests/                    pytest tests
 data/raw/                 raw API responses (gitignored, never committed)
