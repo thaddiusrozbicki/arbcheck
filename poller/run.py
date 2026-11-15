@@ -5,6 +5,7 @@ import math
 import time
 
 from pairs import load_pairs
+from poller.fees import load_fee_model
 from poller.kalshi import collect_kalshi
 from poller.polymarket import collect_polymarket
 from poller.orderbook import normalize_kalshi, normalize_polymarket
@@ -50,14 +51,23 @@ def main(argv=None):
     parser.add_argument("--no-opportunities", action="store_true",
         help="skip the opportunity log and only save raw data",
     )
+    parser.add_argument("--fee-config", help="JSON fee rules for both exchanges")
     args = parser.parse_args(argv)
+    fee_model = None
+    if not args.no_opportunities:
+        if not args.fee_config:
+            parser.error("--fee-config is required unless --no-opportunities is set")
+        try:
+            fee_model = load_fee_model(args.fee_config)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
     if not math.isfinite(args.interval) or args.interval <= 0:
         parser.error("--interval must be a finite number greater than zero")
 
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
-    checker = None if args.no_opportunities else CycleChecker()
+    checker = None if args.no_opportunities else CycleChecker(fee_model=fee_model)
     try:
         while True:
             started = time.monotonic()

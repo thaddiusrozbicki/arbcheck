@@ -29,7 +29,7 @@ from pathlib import Path
 
 from poller import fees
 from poller.orderbook import OrderBook, normalize_kalshi, normalize_polymarket
-from poller.sizing import size_direction
+from poller.sizing import FeeModel, size_direction
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +46,6 @@ DIRECTIONS = (
     (("kalshi", "YES"), ("polymarket", "NO")),
     (("kalshi", "NO"), ("polymarket", "YES")),
 )
-
-
-# ---------- fees ----------
-# The fee model belongs to poller/fees.py. When the real one lands, point this at it.
-FEE_MODEL = fees.sample_fee
 
 
 # ---------- reading saved raw files ----------
@@ -156,12 +151,13 @@ class Observation:
     size_capped: bool
 
 
-def observe(first: OrderBook, second: OrderBook, at: datetime, fee_model=None) -> Observation | None:
+def observe(first: OrderBook, second: OrderBook, at: datetime, fee_model: FeeModel) -> Observation | None:
     """Return an Observation if this direction has a gap right now, otherwise None.
 
     Size and profit come from the sizing engine. Fees come from the fee model.
     """
-    fee_model = fee_model or FEE_MODEL
+    if fee_model is None:
+        raise ValueError("An explicit fee model is required")
     if not first.asks or not second.asks:
         return None
     p1, p2 = first.asks[0].price, second.asks[0].price
@@ -287,9 +283,11 @@ class OpportunityTracker:
 class CycleChecker:
     """Feed it the books from each poll cycle. It checks every pair in both directions."""
 
-    def __init__(self, tracker: OpportunityTracker | None = None, fee_model=None):
+    def __init__(self, tracker: OpportunityTracker | None = None, *, fee_model: FeeModel):
         self.tracker = tracker or OpportunityTracker()
-        self.fee_model = fee_model or FEE_MODEL
+        self.fee_model = fee_model
+        if self.fee_model is None:
+            raise ValueError("An explicit fee model is required")
         self.latest: dict[tuple[str, str, str], OrderBook] = {}
         self.just_opened: list[Observation] = []
 
@@ -331,9 +329,9 @@ class CycleChecker:
 
 
 def replay(records, tracker: OpportunityTracker | None = None,
-           fee_model=None) -> list[dict]:
+           *, fee_model: FeeModel) -> list[dict]:
     """Run time-ordered raw records through the checker and return every opportunity entry."""
-    checker = CycleChecker(tracker, fee_model)
+    checker = CycleChecker(tracker, fee_model=fee_model)
     entries: list[dict] = []
     for cycle in split_into_cycles(records):
         books = [book for record in cycle for book in books_from_raw(record)]
@@ -391,11 +389,16 @@ def main(argv=None):
     parser.add_argument("--raw", default="data/raw", help="folder of saved raw files")
     parser.add_argument("--out", default=str(REPLAY_LOG), help="where to write the replayed log")
     parser.add_argument("--date", help="only use files fetched on this UTC date, YYYY-MM-DD")
+    parser.add_argument("--fee-config", required=True, help="JSON fee rules for both exchanges")
     args = parser.parse_args(argv)
+    try:
+        fee_model = fees.load_fee_model(args.fee_config)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     index = index_raw_files(Path(args.raw), args.date)
-    entries = replay(load_records(index))
+    entries = replay(load_records(index), fee_model=fee_model)
     write_log(entries, Path(args.out))
 
     counts = {}
@@ -403,7 +406,7 @@ def main(argv=None):
         counts[e["result"]] = counts.get(e["result"], 0) + 1
     still_open = sum(1 for e in entries if e["end_reason"] == "still_open")
     print(f"Read {len(index)} order book files")
-    print(f"Fee model: poller.fees.{FEE_MODEL.__name__}")
+    print(f"Fee configuration: {args.fee_config}")
     print(f"Found {len(entries)} opportunities: "
           f"{counts.get('tradable', 0)} tradable, "
           f"{counts.get('below_minimum', 0)} below the 1 cent minimum, "
