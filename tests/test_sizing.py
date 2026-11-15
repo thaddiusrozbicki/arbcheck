@@ -1,6 +1,11 @@
 from decimal import Decimal as D
 
-from poller.fees import sample_fee
+from poller.fees import ConfiguredFeeModel
+
+fee_model = ConfiguredFeeModel.from_config({
+    "kalshi": {"formula": "quadratic", "rate": "0.07", "round_up_to": "0.01"},
+    "polymarket": {"formula": "notional", "rate": "0", "round_up_to": "0.0001"},
+})
 from poller.orderbook import AskLevel, OrderBook
 from poller.sizing import size_books, size_direction
 
@@ -18,17 +23,17 @@ def test_walks_depth_and_stops_before_unprofitable_contracts():
     """Make sure we stop buying when the next contracts would eat into our profit."""
     a = book("kalshi", "YES", [(".4", "2"), (".55", "5")])
     b = book("polymarket", "NO", [(".5", "10")])
-    result = size_direction(a, b, sample_fee)
+    result = size_direction(a, b, fee_model)
     assert result.best_trade.quantity == 2
     assert result.best_trade.gross_profit == D(".2")
-    assert result.best_trade.fees == D(".018")
-    assert result.best_trade.estimated_profit == D(".182")
+    assert result.best_trade.fees == D(".04")
+    assert result.best_trade.estimated_profit == D(".16")
 
 
 def test_fee_wiped_opportunity_retained():
     """Make sure we keep the opportunity for logging even when fees wipe out the profit."""
     result = size_direction(book("kalshi", "YES", [(".499", "10")]),
-                            book("polymarket", "NO", [(".5", "10")]), sample_fee)
+                            book("polymarket", "NO", [(".5", "10")]), fee_model)
     assert result.best_trade.quantity == 0
     assert result.gross_opportunity.quantity == 10
     assert result.gross_opportunity.gross_profit == D(".01")

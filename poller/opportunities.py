@@ -12,8 +12,8 @@ data/derived/opportunities.jsonl the moment it closes.
 Replay: rebuild a log from saved raw data. The same input always gives the same log,
 which is how we check the math.
 
-    python -m poller.opportunities
-    python -m poller.opportunities --date 2026-11-09
+    python -m poller.opportunities --fee-config fees.json
+    python -m poller.opportunities --fee-config fees.json --date 2026-11-09
 
 Each line of a log is one opportunity. See OpportunityTracker._entry for the fields.
 """
@@ -46,11 +46,6 @@ DIRECTIONS = (
     (("kalshi", "YES"), ("polymarket", "NO")),
     (("kalshi", "NO"), ("polymarket", "YES")),
 )
-
-
-# ---------- fees ----------
-# The fee model belongs to poller/fees.py. When the real one lands, point this at it.
-FEE_MODEL = fees.sample_fee
 
 
 # ---------- reading saved raw files ----------
@@ -156,12 +151,15 @@ class Observation:
     size_capped: bool
 
 
-def observe(first: OrderBook, second: OrderBook, at: datetime, fee_model=None) -> Observation | None:
+def observe(first: OrderBook, second: OrderBook, at: datetime, fee_model) -> Observation | None:
     """Return an Observation if this direction has a gap right now, otherwise None.
 
     Size and profit come from the sizing engine. Fees come from the fee model.
     """
-    fee_model = fee_model or FEE_MODEL
+    if fee_model is None:
+        raise ValueError("An explicit fee model is required")
+    if not (is_fresh(first, at) and is_fresh(second, at)):
+        return None
     if not first.asks or not second.asks:
         return None
     p1, p2 = first.asks[0].price, second.asks[0].price
@@ -193,7 +191,13 @@ def observe(first: OrderBook, second: OrderBook, at: datetime, fee_model=None) -
 
 
 def is_fresh(book: OrderBook, at: datetime, max_age: float = MAX_AGE_SECONDS) -> bool:
-    return (at - parse_time(book.fetched_at)).total_seconds() <= max_age
+    try:
+        fetched = parse_time(book.fetched_at)
+        if fetched.tzinfo is None or at.tzinfo is None:
+            return False
+        return 0 <= (at - fetched).total_seconds() <= max_age
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        return False
 
 
 # ---------- the tracker ----------
@@ -287,21 +291,33 @@ class OpportunityTracker:
 class CycleChecker:
     """Feed it the books from each poll cycle. It checks every pair in both directions."""
 
-    def __init__(self, tracker: OpportunityTracker | None = None, fee_model=None):
+    def __init__(self, tracker: OpportunityTracker | None = None, *, fee_model):
         self.tracker = tracker or OpportunityTracker()
-        self.fee_model = fee_model or FEE_MODEL
+        if fee_model is None:
+            raise ValueError("An explicit fee model is required")
+        self.fee_model = fee_model
         self.latest: dict[tuple[str, str, str], OrderBook] = {}
         self.just_opened: list[Observation] = []
 
-    def check_cycle(self, books: list[OrderBook]) -> list[dict]:
+    def check_cycle(self, books: list[OrderBook], *, at: datetime | None = None) -> list[dict]:
         """Check one cycle's books. Returns entries that closed during this cycle."""
         self.just_opened = []
         touched: dict[str, datetime] = {}
         for book in books:
+            if at is not None:
+                if not is_fresh(book, at):
+                    continue
+                fetched = at
+            else:
+                try:
+                    fetched = parse_time(book.fetched_at)
+                    if fetched.tzinfo is None:
+                        continue
+                except (ValueError, TypeError, AttributeError):
+                    continue
             self.latest[(book.pair_id, book.exchange, book.outcome)] = book
-            at = parse_time(book.fetched_at)
-            if book.pair_id not in touched or at > touched[book.pair_id]:
-                touched[book.pair_id] = at
+            if book.pair_id not in touched or fetched > touched[book.pair_id]:
+                touched[book.pair_id] = fetched
 
         closed, seen = [], set()
         for pair_id in sorted(touched):
@@ -331,9 +347,9 @@ class CycleChecker:
 
 
 def replay(records, tracker: OpportunityTracker | None = None,
-           fee_model=None) -> list[dict]:
+           *, fee_model) -> list[dict]:
     """Run time-ordered raw records through the checker and return every opportunity entry."""
-    checker = CycleChecker(tracker, fee_model)
+    checker = CycleChecker(tracker, fee_model=fee_model)
     entries: list[dict] = []
     for cycle in split_into_cycles(records):
         books = [book for record in cycle for book in books_from_raw(record)]
@@ -391,11 +407,16 @@ def main(argv=None):
     parser.add_argument("--raw", default="data/raw", help="folder of saved raw files")
     parser.add_argument("--out", default=str(REPLAY_LOG), help="where to write the replayed log")
     parser.add_argument("--date", help="only use files fetched on this UTC date, YYYY-MM-DD")
+    parser.add_argument("--fee-config", required=True, help="Explicit JSON fee rules for replay")
     args = parser.parse_args(argv)
+    try:
+        fee_model = fees.load_fee_model(args.fee_config)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     index = index_raw_files(Path(args.raw), args.date)
-    entries = replay(load_records(index))
+    entries = replay(load_records(index), fee_model=fee_model)
     write_log(entries, Path(args.out))
 
     counts = {}
@@ -403,7 +424,7 @@ def main(argv=None):
         counts[e["result"]] = counts.get(e["result"], 0) + 1
     still_open = sum(1 for e in entries if e["end_reason"] == "still_open")
     print(f"Read {len(index)} order book files")
-    print(f"Fee model: poller.fees.{FEE_MODEL.__name__}")
+    print(f"Fee configuration: {args.fee_config}")
     print(f"Found {len(entries)} opportunities: "
           f"{counts.get('tradable', 0)} tradable, "
           f"{counts.get('below_minimum', 0)} below the 1 cent minimum, "

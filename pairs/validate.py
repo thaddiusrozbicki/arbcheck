@@ -58,9 +58,23 @@ def validate(pairs, today=None):
             elif kind is str and field != "rule_notes" and not pair[field].strip():
                 errors.append(f"{label}: '{field}' is empty")
 
-        extra = set(pair) - set(REQUIRED_FIELDS)
+        extra = set(pair) - set(REQUIRED_FIELDS) - {"rules_verified", "fee_config"}
         if extra:
             warnings.append(f"{label}: unknown fields {sorted(extra)} (typo?)")
+
+        if "rules_verified" in pair and type(pair["rules_verified"]) is not bool:
+            errors.append(f"{label}: rules_verified should be bool")
+        if "fee_config" in pair:
+            from poller.fees import ConfiguredFeeModel
+            config = pair["fee_config"]
+            try:
+                ConfiguredFeeModel.from_config(config)
+                if not isinstance(config, dict) or type(config.get("verified")) is not bool:
+                    raise ValueError("fee_config.verified should be bool")
+                if not isinstance(config.get("source"), str) or not config["source"].strip():
+                    raise ValueError("fee_config.source must contain review evidence")
+            except ValueError as exc:
+                errors.append(f"{label}: {exc}")
 
         pid = pair.get("id")
         if isinstance(pid, str) and pid:

@@ -59,19 +59,24 @@ def _estimate_leg(book: OrderBook, quantity: int, fee_model: FeeModel) -> LegEst
     remaining = Decimal(quantity)
     fills = []
     cost = fees = ZERO
+    estimate_fills = getattr(fee_model, "estimate_fills", None)
     for level in book.asks:
         if remaining == 0:
             break
         size = min(remaining, level.size)
         if size == 0:
             continue
-        fee = fee_model(book.exchange, level.price, size)
+        fee = ZERO if estimate_fills is not None else fee_model(book.exchange, level.price, size)
         if not isinstance(fee, Decimal) or not fee.is_finite() or fee < 0:
             raise ValueError("Fee model must return finite, nonnegative Decimal dollars")
         fills.append(AskLevel(level.price, size))
         cost += level.price * size
         fees += fee
         remaining -= size
+    if estimate_fills is not None:
+        fees = estimate_fills(book.exchange, fills)
+        if not isinstance(fees, Decimal) or not fees.is_finite() or fees < 0:
+            raise ValueError("Fee model must return finite, nonnegative Decimal dollars")
     return LegEstimate(book.exchange, book.market, book.outcome, tuple(fills), cost, fees)
 
 

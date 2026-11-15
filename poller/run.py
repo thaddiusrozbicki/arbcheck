@@ -8,7 +8,8 @@ from pairs import load_pairs
 from poller.kalshi import collect_kalshi
 from poller.polymarket import collect_polymarket
 from poller.orderbook import normalize_kalshi, normalize_polymarket
-from poller.opportunities import CycleChecker, finish_log, log_cycle
+from poller.opportunities import finish_log, log_cycle
+from poller.live import LiveCycleChecker
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +17,18 @@ COLLECTORS = {"kalshi": collect_kalshi, "polymarket": collect_polymarket}
 NORMALIZERS = {"kalshi": normalize_kalshi, "polymarket": normalize_polymarket}
 
 
-def poll_once():
+def poll_once(checker=None):
     books = []
     try:
         pairs = load_pairs()
     except (OSError, ValueError, TypeError, AttributeError):
         logger.exception("Could not load pairs; will retry next cycle")
+        if checker is not None:
+            checker.configure([])
         return books
 
+    if checker is not None:
+        checker.configure(pairs)
     if not pairs:
         logger.info("No active pairs to poll")
     for pair in pairs:
@@ -57,11 +62,11 @@ def main(argv=None):
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
-    checker = None if args.no_opportunities else CycleChecker()
+    checker = None if args.no_opportunities else LiveCycleChecker()
     try:
         while True:
             started = time.monotonic()
-            books = poll_once()
+            books = poll_once(checker)
             if checker is not None:
                 log_cycle(checker, books)
             if args.once:
