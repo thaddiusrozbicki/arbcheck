@@ -27,3 +27,7 @@ env/
 .DS_Store
 Thumbs.db
 data/derived/
+
+data/*.db
+data/*.db-wal
+data/*.db-shm
