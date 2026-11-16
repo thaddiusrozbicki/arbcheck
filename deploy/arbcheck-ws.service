@@ -1,0 +1,18 @@
+# Keeps the WebSocket feeds running on the server next to the REST poller.
+#   sudo cp deploy/arbcheck-ws.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now arbcheck-ws
+[Unit]
+Description=ArbCheck WebSocket feeds
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/arbcheck
+EnvironmentFile=-/home/ubuntu/arbcheck/.env
+ExecStart=/home/ubuntu/arbcheck/.venv/bin/python -m poller.ws_run
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -3,6 +3,7 @@
 One file, data/arbcheck.db, holds what the website needs:
   latest_books   the newest order book for every pair, exchange, and side
   opportunities  every gap the logger has seen, open or finished
+  feed_status    whether each WebSocket book is live, resyncing, or disconnected
 
 Raw API responses stay as files in data/raw. They don't go in here.
 
@@ -46,6 +47,18 @@ CREATE TABLE IF NOT EXISTS opportunities (
 );
 
 CREATE INDEX IF NOT EXISTS opportunities_by_time ON opportunities (opened_at);
+
+CREATE TABLE IF NOT EXISTS feed_status (
+    exchange   TEXT NOT NULL,
+    pair_id    TEXT NOT NULL,
+    outcome    TEXT NOT NULL,
+    market     TEXT,
+    state      TEXT NOT NULL,   -- live, resyncing, disconnected
+    updated_at TEXT,            -- last change applied to this book, UTC
+    last_heard TEXT,            -- last message of any kind on this feed, UTC
+    checked_at TEXT NOT NULL,   -- when the WebSocket runner wrote this row, UTC
+    PRIMARY KEY (exchange, pair_id, outcome)
+);
 """
 
 
@@ -138,6 +151,27 @@ def save_cycle(con: sqlite3.Connection, books, closed, open_entries) -> None:
         con.commit()
     except Exception:
         logger.exception("Could not save this cycle to the database; the poller keeps running")
+        try:
+            con.rollback()
+        except Exception:
+            pass
+
+
+def save_feed_status(con: sqlite3.Connection, exchange: str, rows, checked_at: str) -> None:
+    """Replace one exchange's WebSocket feed status. Errors are logged so the feeds keep running."""
+    try:
+        con.execute("DELETE FROM feed_status WHERE exchange = ?", (exchange,))
+        con.executemany(
+            """
+            INSERT INTO feed_status (exchange, pair_id, outcome, market, state, updated_at, last_heard, checked_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [(exchange, r["pair_id"], r["outcome"], r["market"], r["state"], r["updated_at"],
+              r["last_heard"], checked_at) for r in rows],
+        )
+        con.commit()
+    except Exception:
+        logger.exception("Could not save %s feed status; the feeds keep running", exchange)
         try:
             con.rollback()
         except Exception:

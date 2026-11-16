@@ -82,3 +82,14 @@ def test_backfill_replays_with_explicit_fees(tmp_path):
         assert con.execute("SELECT COUNT(*) FROM opportunities").fetchone()[0] == 1
     finally:
         con.close()
+
+
+def test_feed_status_is_replaced_per_exchange(tmp_path):
+    con = db.connect(tmp_path / "a.db")
+    row = {"pair_id": "fed", "outcome": "YES", "market": "111", "state": "live",
+           "updated_at": "2026-11-16T15:00:00+00:00", "last_heard": "2026-11-16T15:00:01+00:00"}
+    db.save_feed_status(con, "polymarket", [row, dict(row, outcome="NO", market="222")], "2026-11-16T15:00:02+00:00")
+    db.save_feed_status(con, "kalshi", [dict(row, market="KXFED")], "2026-11-16T15:00:02+00:00")
+    db.save_feed_status(con, "polymarket", [dict(row, state="resyncing")], "2026-11-16T15:00:07+00:00")
+    rows = con.execute("SELECT exchange, outcome, state FROM feed_status ORDER BY exchange, outcome").fetchall()
+    assert [tuple(r) for r in rows] == [("kalshi", "YES", "live"), ("polymarket", "YES", "resyncing")]
