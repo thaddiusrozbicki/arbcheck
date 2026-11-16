@@ -3,16 +3,22 @@
 Keeps a live order book for every active pair, saves every raw message to
 data/raw/<exchange>_ws/, and writes each book's state to the feed_status table
 so the website can show it. Runs next to the REST poller, not instead of it.
+
+The Kalshi feed reads its key from the environment. Locally that comes from
+.env in the repo root; on the server systemd loads the same file.
 """
 import argparse
 import asyncio
 import logging
+import os
 import signal
 from collections import Counter
 from datetime import datetime, timezone
+from pathlib import Path
 
 from pairs import load_pairs
 from poller import db
+from poller.ws_kalshi import KalshiFeed
 from poller.ws_polymarket import PolymarketFeed
 
 logger = logging.getLogger(__name__)
@@ -21,7 +27,20 @@ STATUS_SECONDS = 5       # how often feed_status is written
 PAIRS_SECONDS = 60       # how often pairs.json is re-read
 SUMMARY_SECONDS = 60     # how often a one-line summary is logged
 
-FEEDS = {"polymarket": PolymarketFeed}
+FEEDS = {"kalshi": KalshiFeed, "polymarket": PolymarketFeed}
+
+
+def load_env(path=".env"):
+    """Fill os.environ from KEY=VALUE lines, never replacing values that are already set."""
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+    for line in lines:
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip())
 
 
 def _now():
@@ -98,6 +117,7 @@ def main(argv=None):
     parser.add_argument("--no-db", action="store_true", help="don't write feed status to the database")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    load_env()
     asyncio.run(main_async(args))
 
 

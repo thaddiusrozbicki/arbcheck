@@ -33,6 +33,8 @@ poller/sizing.py          depth-aware sizing for both complementary directions
 poller/fees.py            explicit Decimal fee rules and rounding
 poller/live.py            live eligibility, identity, and freshness checks
 poller/livebook.py        in-memory order books kept current by the WebSocket feeds
+poller/ws_feed.py         connection, keepalive, reconnect, and raw logging shared by both feeds
+poller/ws_kalshi.py       Kalshi WebSocket feed (signed, read-only key) with sequence-gap resync
 poller/ws_polymarket.py   Polymarket WebSocket feed with drift detection and resync
 poller/ws_run.py          runs the WebSocket feeds and writes feed status for the site
 deploy/                   systemd services and nightly raw data compression for the server

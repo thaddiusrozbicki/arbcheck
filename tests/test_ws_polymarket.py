@@ -7,7 +7,7 @@ from decimal import Decimal as D
 
 import websockets
 
-from poller import ws_polymarket
+from poller import ws_feed
 from poller.livebook import DISCONNECTED, LIVE, RESYNCING
 from poller.orderbook import AskLevel
 from poller.ws_polymarket import PolymarketFeed
@@ -39,7 +39,7 @@ def test_only_active_pairs_with_valid_tokens_are_tracked(tmp_path):
     feed = PolymarketFeed([PAIR, dict(PAIR, id="off", active=False, poly_yes_token="3", poly_no_token="4"),
                            dict(PAIR, id="bad", poly_yes_token="x", poly_no_token="5")], raw_dir=tmp_path)
     assert feed.tokens == {"111": ("fed", "YES"), "222": ("fed", "NO")}
-    assert feed.subscribe_message() == {"assets_ids": ["111", "222"], "type": "market"}
+    assert feed.subscribe_messages() == [{"assets_ids": ["111", "222"], "type": "market"}]
 
 
 def test_books_wait_for_their_snapshot(tmp_path):
@@ -105,7 +105,7 @@ def test_changing_pairs_while_connected_forces_resubscribe(tmp_path):
 
 
 def test_reconnects_after_drift_and_saves_raw_messages(tmp_path, monkeypatch):
-    monkeypatch.setattr(ws_polymarket, "MIN_RESYNC_SECONDS", 0)
+    monkeypatch.setattr(ws_feed, "MIN_RESYNC_SECONDS", 0)
     connections = []
 
     async def handler(ws):

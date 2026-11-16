@@ -15,43 +15,25 @@ ask Polymarket reports with it. If they disagree, our book has drifted and we
 resync by reconnecting, which brings fresh snapshots. We also resync if the
 connection goes quiet for too long.
 """
-import asyncio
 import json
 import logging
-from datetime import datetime, timezone
 
-import websockets
-
-from poller.livebook import DISCONNECTED, LIVE, RESYNCING, LiveBook, RawLog, _decimal
+from poller.livebook import LIVE, RESYNCING, LiveBook, _decimal
 from poller.orderbook import normalize_polymarket
+from poller.ws_feed import WebSocketFeed, utc_now
 
 logger = logging.getLogger(__name__)
 
 URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
-PING_SECONDS = 5          # Polymarket wants a text "PING" at least every 10 seconds
-SILENCE_SECONDS = 30      # nothing at all for this long means the connection is dead
-MIN_RESYNC_SECONDS = 10   # don't reconnect more often than this when books drift
-MAX_BACKOFF_SECONDS = 60
 
 
-def _now():
-    return datetime.now(timezone.utc)
-
-
-class PolymarketFeed:
+class PolymarketFeed(WebSocketFeed):
     exchange = "polymarket"
+    raw_name = "polymarket_ws"
 
-    def __init__(self, pairs, raw_dir="data/raw", url=URL, clock=_now):
-        self.url = url
-        self.clock = clock
-        self.raw = RawLog(raw_dir, "polymarket_ws")
+    def __init__(self, pairs, raw_dir="data/raw", url=URL, clock=utc_now):
+        super().__init__(raw_dir, url, clock)
         self.tokens = {}          # token -> (pair_id, outcome)
-        self.books = {}           # token -> LiveBook
-        self.connected = False
-        self.connected_at = None
-        self.last_heard = None
-        self.resync_needed = False
-        self.resyncs = 0
         self.set_pairs(pairs)
 
     def set_pairs(self, pairs):
@@ -73,8 +55,11 @@ class PolymarketFeed:
             self.resync_needed = True
         return changed
 
-    def subscribe_message(self):
-        return {"assets_ids": sorted(self.tokens), "type": "market"}
+    def subscribe_messages(self):
+        return [{"assets_ids": sorted(self.tokens), "type": "market"}]
+
+    async def keepalive(self, ws):
+        await ws.send("PING")   # Polymarket answers with a text "PONG", which handle() counts
 
     # ---------- message handling (no network, unit tested) ----------
 
@@ -153,75 +138,3 @@ class PolymarketFeed:
                  "updated_at": self.books[token].updated_at.isoformat() if self.books[token].updated_at else None,
                  "last_heard": self.last_heard.isoformat() if self.last_heard else None}
                 for token, (pair_id, outcome) in self.tokens.items()]
-
-    # ---------- connection ----------
-
-    def _on_connect(self, at):
-        self.connected, self.connected_at, self.last_heard = True, at, at
-        self.resync_needed = False
-        for book in self.books.values():
-            book.mark(RESYNCING)   # until its snapshot arrives
-
-    def _on_disconnect(self):
-        self.connected = False
-        for book in self.books.values():
-            book.mark(DISCONNECTED)
-
-    async def run(self, stop: asyncio.Event):
-        """Stay connected until stop is set, reconnecting with backoff."""
-        delay = 1
-        while not stop.is_set():
-            if not self.tokens:
-                await _sleep(stop, 5)
-                continue
-            try:
-                async with websockets.connect(self.url, open_timeout=15, max_size=None) as ws:
-                    self._on_connect(self.clock())
-                    await ws.send(json.dumps(self.subscribe_message()))
-                    logger.info("Polymarket feed connected, %d tokens", len(self.tokens))
-                    if await self._read(ws, stop):
-                        delay = 1
-            except (OSError, asyncio.TimeoutError, websockets.WebSocketException) as exc:
-                logger.warning("Polymarket feed connection problem: %s", exc)
-            finally:
-                self._on_disconnect()
-            if not stop.is_set():
-                await _sleep(stop, delay)
-                delay = min(delay * 2, MAX_BACKOFF_SECONDS)
-
-    async def _read(self, ws, stop):
-        """Read until we need to reconnect. Returns True if any message arrived."""
-        got_any = False
-        last_ping = asyncio.get_running_loop().time()
-        while not stop.is_set():
-            loop_time = asyncio.get_running_loop().time()
-            if loop_time - last_ping >= PING_SECONDS:
-                await ws.send("PING")
-                last_ping = loop_time
-            try:
-                text = await asyncio.wait_for(ws.recv(), timeout=1)
-            except asyncio.TimeoutError:
-                text = None
-            at = self.clock()
-            if text is not None:
-                got_any = True
-                self.raw.write(text, at)
-                try:
-                    self.handle(text, at)
-                except (ValueError, KeyError, TypeError) as exc:
-                    logger.warning("Bad Polymarket message, resyncing: %s", exc)
-                    self.resync_needed = True
-            if (at - self.last_heard).total_seconds() > SILENCE_SECONDS:
-                logger.warning("Polymarket feed silent for %ds; reconnecting", SILENCE_SECONDS)
-                return got_any
-            if self.resync_needed and (at - self.connected_at).total_seconds() >= MIN_RESYNC_SECONDS:
-                self.resyncs += 1
-                return got_any
-        return got_any
-
-
-async def _sleep(stop, seconds):
-    try:
-        await asyncio.wait_for(stop.wait(), timeout=seconds)
-    except asyncio.TimeoutError:
-        pass
