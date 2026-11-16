@@ -152,12 +152,18 @@ def test_cli_covers_inactive_pairs_and_continues_after_failure(tmp_path, monkeyp
 
 
 @pytest.mark.parametrize("approval", [None, False, "true", True])
-def test_poller_requires_explicit_admin_approval(monkeypatch, approval):
+def test_unverified_pairs_show_prices_but_never_get_estimates(monkeypatch, approval):
     from poller import run
+    from poller.live import LiveCycleChecker
     pair = {"id": "test", "rules_verified": approval}
     collected = []
     monkeypatch.setattr(run, "load_pairs", lambda: [pair])
     monkeypatch.setattr(run, "COLLECTORS", {"kalshi": lambda p: collected.append(p) or [{}]})
     monkeypatch.setattr(run, "NORMALIZERS", {"kalshi": lambda r: ["normalized"]})
-    assert run.poll_once() == (["normalized"] if approval is True else [])
+    checker = LiveCycleChecker()
+    # Every pair's books reach the website...
+    assert run.poll_once(checker) == ["normalized"]
     assert collected == [pair]
+    # ...but only explicitly approved pairs can ever be sized (see test_ineligible_pairs_never_reach_sizing)
+    if approval is not True:
+        assert "test" not in checker.states

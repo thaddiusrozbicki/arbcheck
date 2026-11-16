@@ -38,9 +38,8 @@ def poll_once(checker=None):
             try:
                 records = collect(pair)
                 logger.info("%s %s: saved %d order books",exchange, pair.get("id", "unknown"), len(records),)
-                if pair.get("rules_verified") is not True:
-                    logger.info("Skipping opportunity estimates for %s: admin rules approval required", pair["id"])
-                    continue
+                # Books from unverified pairs still go to the website so their prices show.
+                # LiveCycleChecker keeps them out of sizing until an admin approves the rules.
                 for record in records:
                     try:
                         books.extend(NORMALIZERS[exchange](record))
