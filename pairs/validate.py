@@ -58,7 +58,10 @@ def validate(pairs, today=None):
             elif kind is str and field != "rule_notes" and not pair[field].strip():
                 errors.append(f"{label}: '{field}' is empty")
 
-        extra = set(pair) - set(REQUIRED_FIELDS)
+        if "rules_verified" in pair and type(pair["rules_verified"]) is not bool:
+            errors.append(f"{label}: rules_verified should be bool")
+
+        extra = set(pair) - set(REQUIRED_FIELDS) - {"rules_verified"}
         if extra:
             warnings.append(f"{label}: unknown fields {sorted(extra)} (typo?)")
 

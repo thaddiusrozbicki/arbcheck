@@ -33,6 +33,9 @@ def poll_once():
             try:
                 records = collect(pair)
                 logger.info("%s %s: saved %d order books",exchange, pair.get("id", "unknown"), len(records),)
+                if pair.get("rules_verified") is not True:
+                    logger.info("Skipping opportunity estimates for %s: admin rules approval required", pair["id"])
+                    continue
                 for record in records:
                     try:
                         books.extend(NORMALIZERS[exchange](record))
