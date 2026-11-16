@@ -57,7 +57,7 @@ def validate(pairs, today=None):
                 errors.append(f"{label}: '{field}' should be {kind.__name__}")
             elif kind is str and field != "rule_notes" and not pair[field].strip():
                 errors.append(f"{label}: '{field}' is empty")
-
+                
         extra = set(pair) - set(REQUIRED_FIELDS) - {"rules_verified", "fee_config"}
         if extra:
             warnings.append(f"{label}: unknown fields {sorted(extra)} (typo?)")
