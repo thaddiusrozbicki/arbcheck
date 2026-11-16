@@ -12,8 +12,8 @@ data/derived/opportunities.jsonl the moment it closes.
 Replay: rebuild a log from saved raw data. The same input always gives the same log,
 which is how we check the math.
 
-    python -m poller.opportunities
-    python -m poller.opportunities --date 2026-11-09
+    python -m poller.opportunities --fee-config fees.json
+    python -m poller.opportunities --fee-config fees.json --date 2026-11-09
 
 Each line of a log is one opportunity. See OpportunityTracker._entry for the fields.
 """
@@ -38,6 +38,7 @@ ZERO = Decimal("0")
 MIN_EDGE = Decimal("0.01")   # 1 cent per pair after fees, from the project brief
 MAX_AGE_SECONDS = 5          # older prices never count
 CYCLE_GAP_SECONDS = 3        # files further apart than this belong to different poll cycles
+MAX_SILENCE_SECONDS = 30     # if we haven't seen a gap in this long, we weren't watching, so it ends
 MAX_CONTRACTS = 10_000       # passed to size_direction so sizing stays fast on deep books
 LIVE_LOG = Path("data/derived/opportunities.jsonl")
 REPLAY_LOG = Path("data/derived/opportunities_replay.jsonl")
@@ -151,13 +152,15 @@ class Observation:
     size_capped: bool
 
 
-def observe(first: OrderBook, second: OrderBook, at: datetime, fee_model: FeeModel) -> Observation | None:
+def observe(first: OrderBook, second: OrderBook, at: datetime, fee_model) -> Observation | None:
     """Return an Observation if this direction has a gap right now, otherwise None.
 
     Size and profit come from the sizing engine. Fees come from the fee model.
     """
     if fee_model is None:
         raise ValueError("An explicit fee model is required")
+    if not (is_fresh(first, at) and is_fresh(second, at)):
+        return None
     if not first.asks or not second.asks:
         return None
     p1, p2 = first.asks[0].price, second.asks[0].price
@@ -189,7 +192,13 @@ def observe(first: OrderBook, second: OrderBook, at: datetime, fee_model: FeeMod
 
 
 def is_fresh(book: OrderBook, at: datetime, max_age: float = MAX_AGE_SECONDS) -> bool:
-    return (at - parse_time(book.fetched_at)).total_seconds() <= max_age
+    try:
+        fetched = parse_time(book.fetched_at)
+        if fetched.tzinfo is None or at.tzinfo is None:
+            return False
+        return 0 <= (at - fetched).total_seconds() <= max_age
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        return False
 
 
 # ---------- the tracker ----------
@@ -201,8 +210,9 @@ def _money(value: Decimal) -> str:
 class OpportunityTracker:
     """Keeps one open entry per pair and direction, and closes it when the gap goes away."""
 
-    def __init__(self, min_edge: Decimal = MIN_EDGE):
+    def __init__(self, min_edge: Decimal = MIN_EDGE, max_silence: float = MAX_SILENCE_SECONDS):
         self.min_edge = min_edge
+        self.max_silence = max_silence
         self.open: dict[tuple[str, str], dict] = {}
 
     def update(self, pair_id: str, direction: str, at: datetime,
@@ -210,16 +220,22 @@ class OpportunityTracker:
         """Feed in one check. Returns any entries that just closed."""
         key = (pair_id, direction)
         entry = self.open.get(key)
+        closed = []
+        if entry and (at - entry["last"].observed_at).total_seconds() > self.max_silence:
+            # The poller wasn't running in between, so we can't say the gap lasted this whole time
+            del self.open[key]
+            closed.append(self._entry(entry, closed_at=None, end_reason="stale"))
+            entry = None
         if stale:
             if entry:
                 del self.open[key]
-                return [self._entry(entry, closed_at=None, end_reason="stale")]
-            return []
+                closed.append(self._entry(entry, closed_at=None, end_reason="stale"))
+            return closed
         if obs is None:
             if entry:
                 del self.open[key]
-                return [self._entry(entry, closed_at=at, end_reason="gap_closed")]
-            return []
+                closed.append(self._entry(entry, closed_at=at, end_reason="gap_closed"))
+            return closed
         if entry is None:
             self.open[key] = {"first": obs, "last": obs, "best_edge": obs,
                               "biggest": obs, "cycles": 1}
@@ -230,7 +246,7 @@ class OpportunityTracker:
                 entry["best_edge"] = obs
             if obs.size > entry["biggest"].size:
                 entry["biggest"] = obs
-        return []
+        return closed
 
     def close_missing(self, seen: set[tuple[str, str]]) -> list[dict]:
         """Close open entries whose pair got no fresh check this cycle."""
@@ -283,23 +299,33 @@ class OpportunityTracker:
 class CycleChecker:
     """Feed it the books from each poll cycle. It checks every pair in both directions."""
 
-    def __init__(self, tracker: OpportunityTracker | None = None, *, fee_model: FeeModel):
+    def __init__(self, tracker: OpportunityTracker | None = None, *, fee_model):
         self.tracker = tracker or OpportunityTracker()
-        self.fee_model = fee_model
-        if self.fee_model is None:
+        if fee_model is None:
             raise ValueError("An explicit fee model is required")
+        self.fee_model = fee_model
         self.latest: dict[tuple[str, str, str], OrderBook] = {}
         self.just_opened: list[Observation] = []
 
-    def check_cycle(self, books: list[OrderBook]) -> list[dict]:
+    def check_cycle(self, books: list[OrderBook], *, at: datetime | None = None) -> list[dict]:
         """Check one cycle's books. Returns entries that closed during this cycle."""
         self.just_opened = []
         touched: dict[str, datetime] = {}
         for book in books:
+            if at is not None:
+                if not is_fresh(book, at):
+                    continue
+                fetched = at
+            else:
+                try:
+                    fetched = parse_time(book.fetched_at)
+                    if fetched.tzinfo is None:
+                        continue
+                except (ValueError, TypeError, AttributeError):
+                    continue
             self.latest[(book.pair_id, book.exchange, book.outcome)] = book
-            at = parse_time(book.fetched_at)
-            if book.pair_id not in touched or at > touched[book.pair_id]:
-                touched[book.pair_id] = at
+            if book.pair_id not in touched or fetched > touched[book.pair_id]:
+                touched[book.pair_id] = fetched
 
         closed, seen = [], set()
         for pair_id in sorted(touched):
@@ -323,13 +349,18 @@ class CycleChecker:
         closed += self.tracker.close_missing(seen)
         return closed
 
+    def open_entries(self) -> list[dict]:
+        """Gaps that are open right now, for the website. Marked end_reason 'open'."""
+        return [self.tracker._entry(e, closed_at=None, end_reason="open")
+                for e in self.tracker.open.values()]
+
     def finish(self) -> list[dict]:
         """Entries still open when we stop watching."""
         return self.tracker.finish()
 
 
 def replay(records, tracker: OpportunityTracker | None = None,
-           *, fee_model: FeeModel) -> list[dict]:
+           *, fee_model) -> list[dict]:
     """Run time-ordered raw records through the checker and return every opportunity entry."""
     checker = CycleChecker(tracker, fee_model=fee_model)
     entries: list[dict] = []
@@ -352,14 +383,14 @@ def append_log(entries: list[dict], out: Path = LIVE_LOG) -> None:
             f.write(json.dumps(entry, sort_keys=True) + "\n")
 
 
-def log_cycle(checker: CycleChecker, books: list[OrderBook], out: Path = LIVE_LOG) -> None:
-    """Check one live cycle and save anything that closed. Never stops the poller."""
+def log_cycle(checker: CycleChecker, books: list[OrderBook], out: Path = LIVE_LOG) -> list[dict]:
+    """Check one live cycle, save anything that closed, and return it. Never stops the poller."""
     try:
         closed = checker.check_cycle(books)
         append_log(closed, out)
     except Exception:
         logger.exception("Opportunity check failed this cycle; the poller keeps running")
-        return
+        return []
     for obs in checker.just_opened:
         logger.info("Opportunity opened: %s %s, %.1f + %.1f cents, %.2f cents after fees",
                     obs.pair_id, obs.direction, float(obs.first_price * 100),
@@ -367,14 +398,18 @@ def log_cycle(checker: CycleChecker, books: list[OrderBook], out: Path = LIVE_LO
     for entry in closed:
         logger.info("Opportunity closed: %s %s, %s, %s",
                     entry["pair_id"], entry["direction"], entry["end_reason"], entry["result"])
+    return closed
 
 
-def finish_log(checker: CycleChecker, out: Path = LIVE_LOG) -> None:
-    """Save gaps that were still open when the poller stopped."""
+def finish_log(checker: CycleChecker, out: Path = LIVE_LOG) -> list[dict]:
+    """Save gaps that were still open when the poller stopped, and return them."""
     try:
-        append_log(checker.finish(), out)
+        entries = checker.finish()
+        append_log(entries, out)
+        return entries
     except Exception:
         logger.exception("Could not save the still-open opportunities")
+        return []
 
 
 def write_log(entries: list[dict], out: Path) -> None:
@@ -389,7 +424,7 @@ def main(argv=None):
     parser.add_argument("--raw", default="data/raw", help="folder of saved raw files")
     parser.add_argument("--out", default=str(REPLAY_LOG), help="where to write the replayed log")
     parser.add_argument("--date", help="only use files fetched on this UTC date, YYYY-MM-DD")
-    parser.add_argument("--fee-config", required=True, help="JSON fee rules for both exchanges")
+    parser.add_argument("--fee-config", required=True, help="Explicit JSON fee rules for replay")
     args = parser.parse_args(argv)
     try:
         fee_model = fees.load_fee_model(args.fee_config)

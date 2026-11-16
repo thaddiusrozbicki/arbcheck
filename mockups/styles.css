@@ -406,3 +406,16 @@ textarea { min-height: 84px; resize: vertical; }
 /* Keep the first column readable when a wide table scrolls on phones */
 .table-wrap th:first-child, .table-wrap td:first-child { min-width: 180px; }
 .book .table-wrap th:first-child, .book .table-wrap td:first-child { min-width: 0; }
+
+/* ---------- Live data ---------- */
+
+.notice {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--poly);
+  background: var(--surface);
+  border-radius: 4px;
+  font-size: 14px;
+}
+tr.is-open td { background: color-mix(in srgb, var(--edge) 10%, transparent); }
+.feed .neg { color: var(--over); }

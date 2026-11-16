@@ -30,7 +30,8 @@ poller/polymarket.py      Polymarket order book poller
 poller/run.py             runs both pollers on a loop
 poller/orderbook.py       shared order book format and exchange converters
 poller/sizing.py          depth-aware sizing for both complementary directions
-poller/fees.py            replaceable sample fee model (development only)
+poller/fees.py            explicit Decimal fee rules and rounding
+poller/live.py            live eligibility, identity, and freshness checks
 scripts/lookup_pair.py    finds tickers and token IDs for new pairs
 tests/                    pytest tests
 data/raw/                 raw API responses (gitignored, never committed)
@@ -117,3 +118,13 @@ Compare both rule pages and note anything that differs.
 - Exact bracket for multi-outcome events
 
 If the rules really differ, it's two separate bets and not an arb. Leave it out or set `active` to false.
+
+## LLM rule checker
+
+Uses OpenAI to compare the settlement rules for every tracked Kalshi–Polymarket
+pair. It returns a verdict (`equivalent`, `different`, or `uncertain`), a confidence
+score, and specific rule differences with supporting quotes.
+
+Results are saved to `data/derived/rule_reviews.jsonl`. An admin must review the
+findings and approve the pair before it can produce live opportunity estimates.
+The checker never approves pairs automatically.

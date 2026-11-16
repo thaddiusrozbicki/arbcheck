@@ -111,6 +111,26 @@ def test_stale_price_closes_without_an_end_time():
     assert closed[0]["closed_at"] is None
 
 
+def test_long_silence_ends_the_gap_and_starts_a_new_one():
+    # Seen at 3:00 PM, then not again until 5:00 PM because the poller was off
+    tracker = OpportunityTracker()
+    tracker.update("fed", DIR, T0, observe(*brief_books(T0), at=T0, fee_model=stand_in_fee))
+    later = T0 + timedelta(hours=2)
+    closed = tracker.update("fed", DIR, later, observe(*brief_books(later), at=later, fee_model=stand_in_fee))
+    assert len(closed) == 1
+    assert closed[0]["end_reason"] == "stale"
+    assert closed[0]["last_seen_at"] == T0.isoformat()
+    assert tracker.open[("fed", DIR)]["first"].observed_at == later
+
+
+def test_normal_ten_second_cycles_stay_one_gap():
+    tracker = OpportunityTracker()
+    for i in range(3):
+        at = T0 + timedelta(seconds=10 * i)
+        assert tracker.update("fed", DIR, at, observe(*brief_books(at), at=at, fee_model=stand_in_fee)) == []
+    assert tracker.open[("fed", DIR)]["cycles"] == 3
+
+
 def test_finish_marks_still_open():
     tracker = OpportunityTracker()
     tracker.update("fed", DIR, T0, observe(*brief_books(), at=T0, fee_model=stand_in_fee))
@@ -176,6 +196,13 @@ def test_replay_logs_one_gap_from_open_to_close():
     assert e["result"] == "tradable"
 
 
+def test_replay_splits_gaps_across_separate_poller_runs():
+    # One run at 3:00 PM, another two weeks later. Same gap both times, but two separate entries.
+    later = T0 + timedelta(days=14)
+    entries = replay(cycle(T0, GAP) + cycle(later, GAP), fee_model=stand_in_fee)
+    assert [e["end_reason"] for e in entries] == ["stale", "still_open"]
+
+
 def test_replay_is_the_same_every_time():
     records = cycle(T0, GAP) + cycle(T0 + timedelta(seconds=10), NO_GAP)
     assert replay(list(records), fee_model=stand_in_fee) == replay(list(records), fee_model=stand_in_fee)
@@ -190,9 +217,9 @@ def test_stale_price_never_opens_an_opportunity():
     ]
     # Put them in one cycle by spacing them under the cycle gap
     records[2]["fetched_at"] = (T0 + timedelta(seconds=2)).isoformat()
-    assert replay(records, fee_model=stand_in_fee) != []  # fresh enough at 2 seconds
+    assert replay(records, fee_model=stand_in_fee) != []
     records[2]["fetched_at"] = (T0 + timedelta(seconds=8)).isoformat()
-    assert replay(records, fee_model=stand_in_fee) == []  # 8 seconds apart, so never opens
+    assert replay(records, fee_model=stand_in_fee) == []
 
 
 def test_read_raw_files_skips_gamma(tmp_path):
@@ -263,4 +290,4 @@ def test_live_log_never_raises(tmp_path):
     class Broken(CycleChecker):
         def check_cycle(self, books):
             raise RuntimeError("boom")
-    log_cycle(Broken(fee_model=stand_in_fee), [], tmp_path / "live.jsonl")  # must not raise
+    log_cycle(Broken(fee_model=stand_in_fee), [], tmp_path / "live.jsonl")

@@ -64,7 +64,7 @@ def test_invalid_prices_and_sizes(price, size):
 def test_poll_once(monkeypatch):
     from poller import run
 
-    monkeypatch.setattr(run, "load_pairs", lambda: [{"id": "pair"}])
+    monkeypatch.setattr(run, "load_pairs", lambda: [{"id": "pair", "rules_verified": True}])
     monkeypatch.setattr(run, "COLLECTORS", {
         "kalshi": lambda pair: [kalshi_record({"no_dollars": [["0.59", "80"]]})],
         "polymarket": lambda pair: [poly_record([{"price": "0.55", "size": "120"}])],
