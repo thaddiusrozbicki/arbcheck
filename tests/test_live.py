@@ -52,6 +52,9 @@ def test_real_pipeline_sizes_live_records_and_logs_auditable_fees(pair, monkeypa
     log_cycle(checker, poll_once(checker), out)
     assert checker.just_opened[0].best_size == 120
     assert checker.just_opened[0].best_profit == D("2.36")
+    [open_entry] = checker.open_entries()
+    assert open_entry["end_reason"] == "open"
+    assert open_entry["fee_config"] == pair["fee_config"]
     finish_log(checker, out)
     entry = json.loads(out.read_text())
     assert entry["best_trade_profit"] == "2.3600"

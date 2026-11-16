@@ -2,9 +2,11 @@
 import argparse
 import logging
 import math
+import signal
 import time
 
 from pairs import load_pairs
+from poller import db
 from poller.kalshi import collect_kalshi
 from poller.polymarket import collect_polymarket
 from poller.orderbook import normalize_kalshi, normalize_polymarket
@@ -36,6 +38,9 @@ def poll_once(checker=None):
             try:
                 records = collect(pair)
                 logger.info("%s %s: saved %d order books",exchange, pair.get("id", "unknown"), len(records),)
+                if pair.get("rules_verified") is not True:
+                    logger.info("Skipping opportunity estimates for %s: admin rules approval required", pair["id"])
+                    continue
                 for record in records:
                     try:
                         books.extend(NORMALIZERS[exchange](record))
@@ -46,7 +51,26 @@ def poll_once(checker=None):
     return books
 
 
+def open_database():
+    """Open the website database. If it fails, the poller still runs and saves raw files."""
+    try:
+        con = db.connect()
+        stale = db.mark_open_as_stale(con)
+        if stale:
+            logger.info("Marked %d gaps from the last run as stale", stale)
+        return con
+    except Exception:
+        logger.exception("Could not open the database; continuing without it")
+        return None
+
+
+def _stop(signum, frame):
+    raise KeyboardInterrupt
+
+
 def main(argv=None):
+    # A server stops a service with SIGTERM. Treat it like Ctrl+C so open gaps get saved.
+    signal.signal(signal.SIGTERM, _stop)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--interval", type=float, default=10,
         help="seconds between cycle starts (default: 10); slow cycles do not overlap",
@@ -54,6 +78,9 @@ def main(argv=None):
     parser.add_argument("--once", action="store_true", help="run one cycle and exit")
     parser.add_argument("--no-opportunities", action="store_true",
         help="skip the opportunity log and only save raw data",
+    )
+    parser.add_argument("--no-db", action="store_true",
+        help="don't write to the database (the website won't update)",
     )
     args = parser.parse_args(argv)
     if not math.isfinite(args.interval) or args.interval <= 0:
@@ -63,12 +90,15 @@ def main(argv=None):
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
     checker = None if args.no_opportunities else LiveCycleChecker()
+    con = None if args.no_db else open_database()
     try:
         while True:
             started = time.monotonic()
             books = poll_once(checker)
-            if checker is not None:
-                log_cycle(checker, books)
+            closed = log_cycle(checker, books) if checker is not None else []
+            if con is not None:
+                open_now = checker.open_entries() if checker is not None else []
+                db.save_cycle(con, books, closed, open_now)
             if args.once:
                 break
             time.sleep(max(0, args.interval - (time.monotonic() - started)))
@@ -76,7 +106,11 @@ def main(argv=None):
         logger.info("Poller stopped")
     finally:
         if checker is not None:
-            finish_log(checker)
+            still_open = finish_log(checker)
+            if con is not None:
+                db.save_cycle(con, [], still_open, [])
+        if con is not None:
+            con.close()
 
 
 if __name__ == "__main__":

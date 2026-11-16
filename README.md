@@ -118,3 +118,13 @@ Compare both rule pages and note anything that differs.
 - Exact bracket for multi-outcome events
 
 If the rules really differ, it's two separate bets and not an arb. Leave it out or set `active` to false.
+
+## LLM rule checker
+
+Uses OpenAI to compare the settlement rules for every tracked Kalshi–Polymarket
+pair. It returns a verdict (`equivalent`, `different`, or `uncertain`), a confidence
+score, and specific rule differences with supporting quotes.
+
+Results are saved to `data/derived/rule_reviews.jsonl`. An admin must review the
+findings and approve the pair before it can produce live opportunity estimates.
+The checker never approves pairs automatically.

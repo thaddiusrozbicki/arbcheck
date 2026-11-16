@@ -102,6 +102,10 @@ class LiveCycleChecker:
                 self.just_opened += candidate.just_opened
         return closed
 
+    def open_entries(self):
+        return [entry for _, pair, checker in self.states.values()
+                for entry in self._entries(checker.open_entries(), pair)]
+
     def finish(self):
         entries, self.pending = self.pending, []
         for _, pair, checker in self.states.values():

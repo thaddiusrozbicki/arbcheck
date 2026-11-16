@@ -8,8 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
 </head>
-<body>
+<body data-page="results">
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="index.html">ArbCheck</a>
@@ -19,40 +20,41 @@
         <a href="results.html" aria-current="page">Results</a>
         <a href="admin.html">Admin</a>
       </nav>
-      <p class="feed"><strong>Sample data</strong>, Nov 1, 2026, 10:42 AM ET<br>Last poll 2 seconds ago</p>
+      <p class="feed" id="feed"><strong>Connecting</strong><br>Checking the poller</p>
     </div>
   </header>
   <main>
     <div class="page-head">
       <h1>Results</h1>
     </div>
-    <p class="lead">Since the poller started on Oct 26, it has seen 214 price gaps between Kalshi and Polymarket. Only 23 were still positive after fees.</p>
+    <p class="lead" id="lead">Loading results.</p>
 
     <section class="panel" aria-labelledby="funnel-h">
       <h2 id="funnel-h">How many gaps survived fees</h2>
       <div class="funnel">
         <div class="funnel-row">
           <span>Gaps before fees</span>
-          <div class="funnel-bar"><span style="width:100%"></span></div>
-          <span class="funnel-count">214</span>
+          <div class="funnel-bar"><span id="bar-all" style="width:0%"></span></div>
+          <span class="funnel-count" id="count-all">0</span>
         </div>
         <div class="funnel-row after">
           <span>Survived fees</span>
-          <div class="funnel-bar"><span style="width:10.7%"></span></div>
-          <span class="funnel-count">23</span>
+          <div class="funnel-bar"><span id="bar-survived" style="width:0%"></span></div>
+          <span class="funnel-count" id="count-survived">0</span>
         </div>
       </div>
     </section>
 
-    <h2>How big the 23 survivors were</h2>
+    <h2 id="survivors-h">How big the survivors were</h2>
     <div class="panel">
       <dl class="stats">
-        <div><dt>Median edge per pair</dt><dd>0.8¢</dd></div>
-        <div><dt>Median size</dt><dd>110 pairs</dd></div>
-        <div><dt>Median profit</dt><dd>$0.74</dd></div>
-        <div><dt>Largest profit</dt><dd>$2.36</dd></div>
+        <div><dt>Median edge per pair</dt><dd id="stat-edge">None</dd></div>
+        <div><dt>Median size</dt><dd id="stat-size">None</dd></div>
+        <div><dt>Median profit</dt><dd id="stat-profit">None</dd></div>
+        <div><dt>Largest profit</dt><dd id="stat-largest">None</dd></div>
       </dl>
     </div>
+    <p class="small muted" id="fee-note"></p>
   </main>
 </body>
 </html>

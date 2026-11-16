@@ -38,6 +38,7 @@ ZERO = Decimal("0")
 MIN_EDGE = Decimal("0.01")   # 1 cent per pair after fees, from the project brief
 MAX_AGE_SECONDS = 5          # older prices never count
 CYCLE_GAP_SECONDS = 3        # files further apart than this belong to different poll cycles
+MAX_SILENCE_SECONDS = 30     # if we haven't seen a gap in this long, we weren't watching, so it ends
 MAX_CONTRACTS = 10_000       # passed to size_direction so sizing stays fast on deep books
 LIVE_LOG = Path("data/derived/opportunities.jsonl")
 REPLAY_LOG = Path("data/derived/opportunities_replay.jsonl")
@@ -209,8 +210,9 @@ def _money(value: Decimal) -> str:
 class OpportunityTracker:
     """Keeps one open entry per pair and direction, and closes it when the gap goes away."""
 
-    def __init__(self, min_edge: Decimal = MIN_EDGE):
+    def __init__(self, min_edge: Decimal = MIN_EDGE, max_silence: float = MAX_SILENCE_SECONDS):
         self.min_edge = min_edge
+        self.max_silence = max_silence
         self.open: dict[tuple[str, str], dict] = {}
 
     def update(self, pair_id: str, direction: str, at: datetime,
@@ -218,16 +220,22 @@ class OpportunityTracker:
         """Feed in one check. Returns any entries that just closed."""
         key = (pair_id, direction)
         entry = self.open.get(key)
+        closed = []
+        if entry and (at - entry["last"].observed_at).total_seconds() > self.max_silence:
+            # The poller wasn't running in between, so we can't say the gap lasted this whole time
+            del self.open[key]
+            closed.append(self._entry(entry, closed_at=None, end_reason="stale"))
+            entry = None
         if stale:
             if entry:
                 del self.open[key]
-                return [self._entry(entry, closed_at=None, end_reason="stale")]
-            return []
+                closed.append(self._entry(entry, closed_at=None, end_reason="stale"))
+            return closed
         if obs is None:
             if entry:
                 del self.open[key]
-                return [self._entry(entry, closed_at=at, end_reason="gap_closed")]
-            return []
+                closed.append(self._entry(entry, closed_at=at, end_reason="gap_closed"))
+            return closed
         if entry is None:
             self.open[key] = {"first": obs, "last": obs, "best_edge": obs,
                               "biggest": obs, "cycles": 1}
@@ -238,7 +246,7 @@ class OpportunityTracker:
                 entry["best_edge"] = obs
             if obs.size > entry["biggest"].size:
                 entry["biggest"] = obs
-        return []
+        return closed
 
     def close_missing(self, seen: set[tuple[str, str]]) -> list[dict]:
         """Close open entries whose pair got no fresh check this cycle."""
@@ -341,6 +349,11 @@ class CycleChecker:
         closed += self.tracker.close_missing(seen)
         return closed
 
+    def open_entries(self) -> list[dict]:
+        """Gaps that are open right now, for the website. Marked end_reason 'open'."""
+        return [self.tracker._entry(e, closed_at=None, end_reason="open")
+                for e in self.tracker.open.values()]
+
     def finish(self) -> list[dict]:
         """Entries still open when we stop watching."""
         return self.tracker.finish()
@@ -370,14 +383,14 @@ def append_log(entries: list[dict], out: Path = LIVE_LOG) -> None:
             f.write(json.dumps(entry, sort_keys=True) + "\n")
 
 
-def log_cycle(checker: CycleChecker, books: list[OrderBook], out: Path = LIVE_LOG) -> None:
-    """Check one live cycle and save anything that closed. Never stops the poller."""
+def log_cycle(checker: CycleChecker, books: list[OrderBook], out: Path = LIVE_LOG) -> list[dict]:
+    """Check one live cycle, save anything that closed, and return it. Never stops the poller."""
     try:
         closed = checker.check_cycle(books)
         append_log(closed, out)
     except Exception:
         logger.exception("Opportunity check failed this cycle; the poller keeps running")
-        return
+        return []
     for obs in checker.just_opened:
         logger.info("Opportunity opened: %s %s, %.1f + %.1f cents, %.2f cents after fees",
                     obs.pair_id, obs.direction, float(obs.first_price * 100),
@@ -385,14 +398,18 @@ def log_cycle(checker: CycleChecker, books: list[OrderBook], out: Path = LIVE_LO
     for entry in closed:
         logger.info("Opportunity closed: %s %s, %s, %s",
                     entry["pair_id"], entry["direction"], entry["end_reason"], entry["result"])
+    return closed
 
 
-def finish_log(checker: CycleChecker, out: Path = LIVE_LOG) -> None:
-    """Save gaps that were still open when the poller stopped."""
+def finish_log(checker: CycleChecker, out: Path = LIVE_LOG) -> list[dict]:
+    """Save gaps that were still open when the poller stopped, and return them."""
     try:
-        append_log(checker.finish(), out)
+        entries = checker.finish()
+        append_log(entries, out)
+        return entries
     except Exception:
         logger.exception("Could not save the still-open opportunities")
+        return []
 
 
 def write_log(entries: list[dict], out: Path) -> None:
