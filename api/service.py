@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from pairs import load_pairs
 from poller import opportunities as opp
+from poller.fees import reviewed_pair_fees
 from poller.orderbook import AskLevel, OrderBook
 from poller.sizing import size_direction
 
@@ -56,9 +57,8 @@ def book_json(book: OrderBook, now: datetime, levels: int = BOOK_LEVELS_SHOWN) -
 
 # ---------- one direction ----------
 
-def evaluate_direction(first: OrderBook, second: OrderBook, now: datetime, verified: bool = True) -> dict:
+def evaluate_direction(first: OrderBook, second: OrderBook, now: datetime, verified: bool = True, *, fee_model=None) -> dict:
     """Best-price check for one direction, using the logger's rules."""
-    fee_model = opp.FEE_MODEL
     first_age, second_age = age_seconds(first, now), age_seconds(second, now)
     out = {
         "direction": f"{first.exchange} {first.outcome} + {second.exchange} {second.outcome}",
@@ -68,7 +68,7 @@ def evaluate_direction(first: OrderBook, second: OrderBook, now: datetime, verif
         "polymarket_fetched_at": second.fetched_at,
         "kalshi_price": None, "polymarket_price": None,
         "cost": None, "gross_edge": None, "fee": None, "net_edge": None,
-        "stale": first_age > opp.MAX_AGE_SECONDS or second_age > opp.MAX_AGE_SECONDS,
+        "stale": not (opp.is_fresh(first, now) and opp.is_fresh(second, now)),
     }
     if not first.asks or not second.asks:
         out["status"] = "no_data"
@@ -76,6 +76,9 @@ def evaluate_direction(first: OrderBook, second: OrderBook, now: datetime, verif
     p1, p2 = first.asks[0].price, second.asks[0].price
     gross = ONE - p1 - p2
     out.update(kalshi_price=_f(p1, 4), polymarket_price=_f(p2, 4), cost=_f(p1 + p2, 4), gross_edge=_f(gross))
+    if fee_model is None:
+        out["status"] = "not_verified"
+        return out
     if gross > 0:
         fee = fee_model(first.exchange, p1, ONE) + fee_model(second.exchange, p2, ONE)
         out.update(fee=_f(fee), net_edge=_f(gross - fee))
@@ -104,11 +107,18 @@ def directions_for(pair_id: str, books: dict) -> list[tuple[OrderBook, OrderBook
     return found
 
 
+def pair_fee_model(pair):
+    try:
+        return reviewed_pair_fees(pair)
+    except (ValueError, TypeError, KeyError):
+        return None
+
+
 def best_direction(pair: dict, books: dict, now: datetime):
     """The cheaper of the two directions, with its books. None if we don't have both sides yet."""
     options = []
     for first, second in directions_for(pair["id"], books):
-        result = evaluate_direction(first, second, now, pair.get("verified", True))
+        result = evaluate_direction(first, second, now, pair.get("rules_verified") is True, fee_model=pair_fee_model(pair))
         options.append((result, first, second))
     priced = [o for o in options if o[0]["cost"] is not None]
     if priced:
@@ -124,7 +134,7 @@ def pair_meta(pair: dict) -> dict:
         "name": pair.get("name", pair["id"]),
         "category": pair.get("category"),
         "resolution_date": pair.get("resolution_date"),
-        "verified": pair.get("verified", True),
+        "verified": pair_fee_model(pair) is not None,
         "active": pair.get("active", True),
     }
 
@@ -151,9 +161,9 @@ def days_until(resolution_date: str | None, now: datetime) -> int | None:
         return None
 
 
-def trade_plan(first: OrderBook, second: OrderBook, days: int | None, now: datetime) -> dict | None:
+def trade_plan(first: OrderBook, second: OrderBook, days: int | None, now: datetime, *, fee_model) -> dict | None:
     """Sizes the trade with the team's sizing engine. None if no size makes money."""
-    sizing = size_direction(first, second, opp.FEE_MODEL, max_contracts=opp.MAX_CONTRACTS)
+    sizing = size_direction(first, second, fee_model, max_contracts=opp.MAX_CONTRACTS)
     trade = sizing.best_trade
     if trade.quantity < 1:
         return None
@@ -202,7 +212,7 @@ def pair_detail(con: sqlite3.Connection, pair_id: str, pairs=None, now: datetime
         "poly_rules_url": pair.get("poly_rules_url"),
         "rule_notes": pair.get("rule_notes", ""),
         "days_to_resolution": days,
-        "directions": [evaluate_direction(f, s, now, pair.get("verified", True))
+        "directions": [evaluate_direction(f, s, now, pair.get("rules_verified") is True, fee_model=pair_fee_model(pair))
                        for f, s in directions_for(pair_id, books)],
         "best": best[0] if best else None,
         "status": best[0]["status"] if best else "no_data",
@@ -213,7 +223,7 @@ def pair_detail(con: sqlite3.Connection, pair_id: str, pairs=None, now: datetime
         result, first, second = best
         detail["books"] = [book_json(first, now), book_json(second, now)]
         if result["status"] == "trade_plan_ready":
-            detail["trade_plan"] = trade_plan(first, second, days, now)
+            detail["trade_plan"] = trade_plan(first, second, days, now, fee_model=pair_fee_model(pair))
     return detail
 
 
@@ -261,7 +271,7 @@ def results(con: sqlite3.Connection, now: datetime | None = None) -> dict:
         "median_profit": median(profits),
         "largest_profit": max(profits) if profits else None,
         "first_seen": min((e["opened_at"] for e in entries), default=None),
-        "fee_model": f"poller.fees.{opp.FEE_MODEL.__name__}",
+        "fee_model": "poller.fees.reviewed_pair_fees",
     }
 
 

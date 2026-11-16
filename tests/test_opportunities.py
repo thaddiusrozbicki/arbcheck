@@ -8,7 +8,6 @@ import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal as D
 
-import poller.opportunities as opp
 from poller.opportunities import (
     CycleChecker,
     OpportunityTracker,
@@ -28,17 +27,6 @@ def stand_in_fee(exchange, price, quantity):
         return D("0.07") * quantity * price * (1 - price)
     return D("0")
 
-
-_real_fee_model = opp.FEE_MODEL
-
-
-def setup_module():
-    # The default fee model is whatever poller/fees.py provides. Pin the stand-in here.
-    opp.FEE_MODEL = stand_in_fee
-
-
-def teardown_module():
-    opp.FEE_MODEL = _real_fee_model
 
 T0 = datetime(2026, 11, 9, 15, 0, 0, tzinfo=timezone.utc)
 
@@ -60,7 +48,7 @@ def brief_books(at=T0):
 # ---------- one check ----------
 
 def test_brief_example_is_tradable():
-    obs = observe(*brief_books(), at=T0)
+    obs = observe(*brief_books(), at=T0, fee_model=stand_in_fee)
     assert obs.gross_edge == D("0.04")
     assert obs.fee == D("0.016933")
     assert obs.net_edge == D("0.023067")
@@ -71,13 +59,13 @@ def test_brief_example_is_tradable():
 def test_no_gap_returns_none():
     k = book("kalshi", "YES", [("0.57", "100")])
     p = book("polymarket", "NO", [("0.43", "100")])
-    assert observe(k, p, at=T0) is None
+    assert observe(k, p, at=T0, fee_model=stand_in_fee) is None
 
 
 def test_fees_wipe_it_out():
     k = book("kalshi", "YES", [("0.63", "300")])
     p = book("polymarket", "NO", [("0.36", "300")])
-    obs = observe(k, p, at=T0)
+    obs = observe(k, p, at=T0, fee_model=stand_in_fee)
     assert obs.gross_edge == D("0.01")
     assert obs.net_edge < 0
     assert obs.best_size == 0
@@ -87,7 +75,7 @@ def test_fees_wipe_it_out():
 def test_below_minimum():
     k = book("kalshi", "YES", [("0.54", "85")])
     p = book("polymarket", "NO", [("0.44", "85")])
-    obs = observe(k, p, at=T0)
+    obs = observe(k, p, at=T0, fee_model=stand_in_fee)
     assert D("0") < obs.net_edge < D("0.01")
     assert OpportunityTracker().result(obs.net_edge) == "below_minimum"
 
@@ -100,8 +88,8 @@ DIR = "kalshi YES + polymarket NO"
 def test_opens_updates_and_closes():
     tracker = OpportunityTracker()
     t1, t2 = T0 + timedelta(seconds=10), T0 + timedelta(seconds=20)
-    assert tracker.update("fed", DIR, T0, observe(*brief_books(T0), at=T0)) == []
-    assert tracker.update("fed", DIR, t1, observe(*brief_books(t1), at=t1)) == []
+    assert tracker.update("fed", DIR, T0, observe(*brief_books(T0), at=T0, fee_model=stand_in_fee)) == []
+    assert tracker.update("fed", DIR, t1, observe(*brief_books(t1), at=t1, fee_model=stand_in_fee)) == []
     closed = tracker.update("fed", DIR, t2, None)
     assert len(closed) == 1
     entry = closed[0]
@@ -116,7 +104,7 @@ def test_opens_updates_and_closes():
 
 def test_stale_price_closes_without_an_end_time():
     tracker = OpportunityTracker()
-    tracker.update("fed", DIR, T0, observe(*brief_books(), at=T0))
+    tracker.update("fed", DIR, T0, observe(*brief_books(), at=T0, fee_model=stand_in_fee))
     closed = tracker.update("fed", DIR, T0 + timedelta(seconds=10), None, stale=True)
     assert closed[0]["end_reason"] == "stale"
     assert closed[0]["closed_at"] is None
@@ -125,9 +113,9 @@ def test_stale_price_closes_without_an_end_time():
 def test_long_silence_ends_the_gap_and_starts_a_new_one():
     # Seen at 3:00 PM, then not again until 5:00 PM because the poller was off
     tracker = OpportunityTracker()
-    tracker.update("fed", DIR, T0, observe(*brief_books(T0), at=T0))
+    tracker.update("fed", DIR, T0, observe(*brief_books(T0), at=T0, fee_model=stand_in_fee))
     later = T0 + timedelta(hours=2)
-    closed = tracker.update("fed", DIR, later, observe(*brief_books(later), at=later))
+    closed = tracker.update("fed", DIR, later, observe(*brief_books(later), at=later, fee_model=stand_in_fee))
     assert len(closed) == 1
     assert closed[0]["end_reason"] == "stale"
     assert closed[0]["last_seen_at"] == T0.isoformat()
@@ -138,13 +126,13 @@ def test_normal_ten_second_cycles_stay_one_gap():
     tracker = OpportunityTracker()
     for i in range(3):
         at = T0 + timedelta(seconds=10 * i)
-        assert tracker.update("fed", DIR, at, observe(*brief_books(at), at=at)) == []
+        assert tracker.update("fed", DIR, at, observe(*brief_books(at), at=at, fee_model=stand_in_fee)) == []
     assert tracker.open[("fed", DIR)]["cycles"] == 3
 
 
 def test_finish_marks_still_open():
     tracker = OpportunityTracker()
-    tracker.update("fed", DIR, T0, observe(*brief_books(), at=T0))
+    tracker.update("fed", DIR, T0, observe(*brief_books(), at=T0, fee_model=stand_in_fee))
     entries = tracker.finish()
     assert entries[0]["end_reason"] == "still_open"
     assert entries[0]["closed_at"] is None
@@ -194,7 +182,7 @@ def test_bad_files_are_skipped():
 def test_replay_logs_one_gap_from_open_to_close():
     records = (cycle(T0, GAP) + cycle(T0 + timedelta(seconds=10), GAP)
                + cycle(T0 + timedelta(seconds=20), NO_GAP))
-    entries = replay(records)
+    entries = replay(records, fee_model=stand_in_fee)
     assert len(entries) == 1
     e = entries[0]
     assert e["direction"] == DIR
@@ -210,13 +198,13 @@ def test_replay_logs_one_gap_from_open_to_close():
 def test_replay_splits_gaps_across_separate_poller_runs():
     # One run at 3:00 PM, another two weeks later. Same gap both times, but two separate entries.
     later = T0 + timedelta(days=14)
-    entries = replay(cycle(T0, GAP) + cycle(later, GAP))
+    entries = replay(cycle(T0, GAP) + cycle(later, GAP), fee_model=stand_in_fee)
     assert [e["end_reason"] for e in entries] == ["stale", "still_open"]
 
 
 def test_replay_is_the_same_every_time():
     records = cycle(T0, GAP) + cycle(T0 + timedelta(seconds=10), NO_GAP)
-    assert replay(list(records)) == replay(list(records))
+    assert replay(list(records), fee_model=stand_in_fee) == replay(list(records), fee_model=stand_in_fee)
 
 
 def test_stale_price_never_opens_an_opportunity():
@@ -228,9 +216,9 @@ def test_stale_price_never_opens_an_opportunity():
     ]
     # Put them in one cycle by spacing them under the cycle gap
     records[2]["fetched_at"] = (T0 + timedelta(seconds=2)).isoformat()
-    assert replay(records) != []  # fresh enough at 2 seconds
+    assert replay(records, fee_model=stand_in_fee) != []
     records[2]["fetched_at"] = (T0 + timedelta(seconds=8)).isoformat()
-    assert replay(records) == []  # 8 seconds apart, so never opens
+    assert replay(records, fee_model=stand_in_fee) == []
 
 
 def test_read_raw_files_skips_gamma(tmp_path):
@@ -247,7 +235,7 @@ def test_read_raw_files_skips_gamma(tmp_path):
 
 
 def test_cycle_checker_opens_and_closes_across_cycles():
-    checker = CycleChecker()
+    checker = CycleChecker(fee_model=stand_in_fee)
     assert checker.check_cycle(list(brief_books(T0))) == []
     assert [o.direction for o in checker.just_opened] == [DIR]
     t1 = T0 + timedelta(seconds=10)
@@ -259,14 +247,14 @@ def test_cycle_checker_opens_and_closes_across_cycles():
 
 
 def test_empty_cycle_closes_open_gaps_as_stale():
-    checker = CycleChecker()
+    checker = CycleChecker(fee_model=stand_in_fee)
     checker.check_cycle(list(brief_books(T0)))
     closed = checker.check_cycle([])  # every request failed this cycle
     assert closed[0]["end_reason"] == "stale"
 
 
 def test_one_exchange_going_quiet_closes_as_stale():
-    checker = CycleChecker()
+    checker = CycleChecker(fee_model=stand_in_fee)
     checker.check_cycle(list(brief_books(T0)))
     t1 = T0 + timedelta(seconds=10)
     closed = checker.check_cycle([book("kalshi", "YES", BRIEF_KALSHI_YES, t1)])  # no Polymarket this cycle
@@ -275,7 +263,7 @@ def test_one_exchange_going_quiet_closes_as_stale():
 
 def test_live_log_appends_closed_and_still_open(tmp_path):
     out = tmp_path / "live.jsonl"
-    checker = CycleChecker()
+    checker = CycleChecker(fee_model=stand_in_fee)
     log_cycle(checker, list(brief_books(T0)), out)
     assert not out.exists()  # nothing has closed yet
     t1 = T0 + timedelta(seconds=10)
@@ -287,13 +275,10 @@ def test_live_log_appends_closed_and_still_open(tmp_path):
     assert [line["end_reason"] for line in lines] == ["gap_closed", "still_open"]
 
 
-def test_default_fee_model_comes_from_fees_py():
-    import poller.fees
-    assert _real_fee_model.__module__ == poller.fees.__name__
 
 
 def test_live_log_never_raises(tmp_path):
     class Broken(CycleChecker):
         def check_cycle(self, books):
             raise RuntimeError("boom")
-    log_cycle(Broken(), [], tmp_path / "live.jsonl")  # must not raise
+    log_cycle(Broken(fee_model=stand_in_fee), [], tmp_path / "live.jsonl")

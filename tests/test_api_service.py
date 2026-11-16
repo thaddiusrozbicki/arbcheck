@@ -3,7 +3,6 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal as D
 
-import poller.opportunities as opp
 from api import service
 from poller import db
 from poller.orderbook import AskLevel, OrderBook
@@ -15,20 +14,11 @@ PAIR = {"id": "fed", "name": "Fed hikes 25 bps in December", "category": "econom
         "rule_notes": "Both resolve on the FOMC statement.", "active": True}
 
 
-def stand_in_fee(exchange, price, quantity):
-    """Stand-in fee for these tests only: the brief's Kalshi formula, $0 on Polymarket."""
-    return D("0.07") * quantity * price * (1 - price) if exchange == "kalshi" else D("0")
-
-
-_real_fee_model = opp.FEE_MODEL
-
-
-def setup_module():
-    opp.FEE_MODEL = stand_in_fee
-
-
-def teardown_module():
-    opp.FEE_MODEL = _real_fee_model
+PAIR.update(rules_verified=True, fee_config={
+    "verified": True, "source": "Test fixture only",
+    "kalshi": {"formula": "quadratic", "rate": "0.07", "rounding": "kalshi", "balance_precision": "0.01"},
+    "polymarket": {"formula": "notional", "rate": "0", "rounding": "polymarket"},
+})
 
 
 def books_at(at, k_yes=(("0.41", "80"), ("0.42", "150")), p_no=(("0.55", "120"), ("0.56", "300")),
@@ -53,7 +43,7 @@ def test_fresh_gap_gets_a_trade_plan(tmp_path):
     assert p["status"] == "trade_plan_ready"
     assert p["best"]["direction"] == "kalshi YES + polymarket NO"
     assert p["best"]["cost"] == 0.96
-    assert p["best"]["net_edge"] == 0.023067
+    assert p["best"]["net_edge"] == 0.02
 
     d = service.pair_detail(con, "fed", pairs=[PAIR], now=NOW)
     plan = d["trade_plan"]
@@ -78,7 +68,7 @@ def test_no_gap(tmp_path):
 
 def test_unverified_pair_gets_no_plan(tmp_path):
     con = fresh_db(tmp_path, books_at(NOW))
-    d = service.pair_detail(con, "fed", pairs=[{**PAIR, "verified": False}], now=NOW)
+    d = service.pair_detail(con, "fed", pairs=[{**PAIR, "rules_verified": False}], now=NOW)
     assert d["status"] == "not_verified"
     assert d["trade_plan"] is None
 
@@ -127,3 +117,19 @@ def test_open_gap_from_a_stopped_poller_shows_as_stale(tmp_path):
     con.commit()
     assert service.list_opportunities(con, pairs=[PAIR], now=NOW)[0]["end_reason"] == "stale"
     assert service.results(con, now=NOW)["open_now"] == 0
+
+
+def test_unreviewed_fees_hide_the_plan(tmp_path):
+    con = fresh_db(tmp_path, books_at(NOW))
+    pair = {**PAIR, "fee_config": {**PAIR["fee_config"], "verified": False}}
+    detail = service.pair_detail(con, "fed", pairs=[pair], now=NOW)
+    assert detail["status"] == "not_verified"
+    assert detail["trade_plan"] is None
+    assert detail["best"]["fee"] is None
+
+
+def test_future_books_hide_the_plan(tmp_path):
+    con = fresh_db(tmp_path, books_at(NOW + timedelta(seconds=1)))
+    detail = service.pair_detail(con, "fed", pairs=[PAIR], now=NOW)
+    assert detail["status"] == "stale"
+    assert detail["trade_plan"] is None

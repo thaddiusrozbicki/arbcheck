@@ -38,8 +38,9 @@
     "resolution_date": "2026-12-09",
     "kalshi_rules_url": "https://kalshi.com/markets/kxfeddecision",
     "poly_rules_url": "https://polymarket.com/event/fed-decision-in-december-20260729232808632",
-    "rule_notes": "Both resolve on the FOMC decision at the Dec 8-9, 2026 meeting, and the brackets match (a 50 bp hike is No for this market on both). Polymarket measures the change in the upper bound and rounds odd sizes up to the nearest 25 bp, so a 12.5 bp hike counts as 25. Kalshi's summary does not say how it treats odd sizes. If the meeting does not happen on its scheduled date, Kalshi resolves to maintains rate right away, while Polymarket waits until the next scheduled meeting before defaulting to no change, so a rescheduled meeting could split them.",
-    "active": true
+    "rule_notes": "Review 2026-11-15: Not verified. Kalshi treats cancellation of the scheduled meeting as no change; Polymarket waits for a statement until the next scheduled meeting deadline. Polymarket also rounds unusual moves up to a 25-bp bracket; equivalent Kalshi treatment is not established. These edge cases can produce incompatible payouts. Sources: https://assets.kalshi.com/contract_terms/FEDDECISION.pdf and the market-specific Gamma API description.",
+    "active": true,
+    "rules_verified": false
   },
   {
     "id": "tx-senate-2026-dem",
@@ -94,8 +95,9 @@
     "resolution_date": "2027-02-15",
     "kalshi_rules_url": "https://kalshi.com/markets/kxsb",
     "poly_rules_url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366",
-    "rule_notes": "Both resolve Yes if the Rams win Super Bowl LXI on Feb 14, 2027. Polymarket resolves No as soon as the Rams are eliminated, and resolves to Other, which is No here, if the game is canceled or pushed past Mar 31, 2027. Kalshi's summary has no cancellation rule and its backstop close is Feb 2029, so a canceled or very late game could split them.",
-    "active": true
+    "rule_notes": "Review 2026-11-15: Not verified. Kalshi TITLE terms permit a two-year postponement window and fractional YES payouts on cancellation or multiple title holders. Polymarket uses a March 31, 2027 ET cutoff and Other on cancellation/no champion. Elimination can resolve No on both; it is not the blocking difference. Sources: https://assets.kalshi.com/contract_terms/TITLE.pdf and the market-specific Gamma API description.",
+    "active": true,
+    "rules_verified": false
   },
   {
     "id": "nba-2027-spurs",
@@ -108,12 +110,13 @@
     "resolution_date": "2027-06-30",
     "kalshi_rules_url": "https://kalshi.com/markets/kxnba",
     "poly_rules_url": "https://polymarket.com/event/nba-2027-champion",
-    "rule_notes": "Both resolve Yes if the Spurs win the 2026-27 NBA title. Polymarket resolves No on elimination, breaks ties between multiple declared champions alphabetically, and resolves to Other, which is No here, if no champion is declared by Jun 30, 2027. Kalshi's summary has none of these rules and its backstop close is Jul 2029, so a canceled or delayed season could split them. Date set to the Polymarket deadline.",
-    "active": true
+    "rule_notes": "Review 2026-11-15: Not verified. Kalshi TITLE terms allow a two-year postponement window and fractional payouts on cancellation or multiple champions. Polymarket uses a June 30, 2027 11:59 PM ET cutoff, Other on cancellation/no champion, and an alphabetical rule for multiple champions. These are incompatible payout conditions. Sources: https://assets.kalshi.com/contract_terms/TITLE.pdf and the market-specific Gamma API description.",
+    "active": true,
+    "rules_verified": false
   },
   {
     "id": "nhl-2027-avalanche",
-    "name": "Will Colorado Avalanche win the 2026-27 Stanley Cup\u00ae Finals? (Colorado Avalanche)",
+    "name": "Will Colorado Avalanche win the 2026-27 Stanley Cup® Finals? (Colorado Avalanche)",
     "category": "sports",
     "kalshi_ticker": "KXNHL-27-COL",
     "poly_slug": "will-the-colorado-avalanche-be-named-the-2026-27-nhl-stanley-cup-champion-20260612185657079",
@@ -122,8 +125,9 @@
     "resolution_date": "2027-06-30",
     "kalshi_rules_url": "https://kalshi.com/markets/kxnhl",
     "poly_rules_url": "https://polymarket.com/event/nhl-2027-champion-20260612185656162",
-    "rule_notes": "Both resolve Yes if the Avalanche win the 2026-27 Stanley Cup. Polymarket resolves No on elimination, breaks ties between multiple declared champions alphabetically, and resolves to Other, which is No here, if no champion is declared by Jun 30, 2027. Kalshi's summary has none of these rules and its backstop close is Jun 2029, so a canceled or delayed season could split them. Date set to the Polymarket deadline.",
-    "active": true
+    "rule_notes": "Review 2026-11-15: Not verified. Kalshi TITLE terms allow a two-year postponement window and fractional payouts on cancellation or multiple champions. Polymarket uses a June 30, 2027 11:59 PM ET cutoff, Other on cancellation/no champion, and an alphabetical rule for multiple champions. These are incompatible payout conditions. Sources: https://assets.kalshi.com/contract_terms/TITLE.pdf and the market-specific Gamma API description.",
+    "active": true,
+    "rules_verified": false
   },
   {
     "id": "pres-2028-dem",
@@ -136,7 +140,8 @@
     "resolution_date": "2029-01-20",
     "kalshi_rules_url": "https://kalshi.com/markets/kxpresparty",
     "poly_rules_url": "https://polymarket.com/event/which-party-wins-2028-us-presidential-election",
-    "rule_notes": "Kalshi pays Yes only if a Democrat is inaugurated for the term beginning Jan 20, 2029. Polymarket resolves once AP, Fox News, and NBC all call the race for the same party, falling back to who is inaugurated. Differences: Polymarket can settle on election-night calls in Nov 2028 while Kalshi waits for inauguration, and a called winner who is never inaugurated would split them. Date set to inauguration day.",
-    "active": true
+    "rule_notes": "Review 2026-11-15: Not verified. Kalshi PRESPARTY terms target the first non-acting person inaugurated, but also permit accelerated resolution after four of eight designated sources call the election with no contradictory call. Polymarket uses unanimous AP/Fox/NBC calls, with inauguration fallback. The call thresholds and fallback criteria differ. This corrects the previous note that Kalshi necessarily waits until inauguration. Sources: https://assets.kalshi.com/contract_terms/PRESPARTY.pdf and the market-specific Gamma API description.",
+    "active": true,
+    "rules_verified": false
   }
 ]
