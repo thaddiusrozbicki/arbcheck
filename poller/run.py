@@ -83,13 +83,6 @@ def main(argv=None):
         help="don't write to the database (the website won't update)",
     )
     args = parser.parse_args(argv)
-    if not args.no_opportunities:
-        if not args.fee_config:
-            parser.error("--fee-config is required unless --no-opportunities is set")
-        try:
-            fee_model = load_fee_model(args.fee_config)
-        except (OSError, ValueError) as exc:
-            parser.error(str(exc))
     if not math.isfinite(args.interval) or args.interval <= 0:
         parser.error("--interval must be a finite number greater than zero")
 

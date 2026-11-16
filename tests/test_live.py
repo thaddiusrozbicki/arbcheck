@@ -233,3 +233,34 @@ def test_invalid_cycle_closes_existing_plan_without_partial_reopening(pair):
     assert closed[0]["end_reason"] == "stale"
     assert not checker.just_opened
     assert checker.finish() == []
+
+
+def test_runner_persists_cycle_for_api(pair, monkeypatch, tmp_path):
+    from api import service
+    from poller import db, run
+
+    monkeypatch.setattr(run.signal, "signal", lambda *args: None)
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "site.db")
+    monkeypatch.setattr(run, "LiveCycleChecker", lambda: LiveCycleChecker(clock=lambda: T0))
+
+    def collect(checker):
+        checker.configure([pair])
+        return books(pair)
+
+    monkeypatch.setattr(run, "poll_once", collect)
+    monkeypatch.setattr(run, "log_cycle", lambda checker, current: log_cycle(checker, current, tmp_path / "log.jsonl"))
+    monkeypatch.setattr(run, "finish_log", lambda checker: finish_log(checker, tmp_path / "log.jsonl"))
+    run.main(["--once"])
+
+    con = db.connect()
+    try:
+        detail = service.pair_detail(con, pair["id"], pairs=[pair], now=T0)
+        assert detail["status"] == "trade_plan_ready"
+        assert detail["trade_plan"]["quantity"] == 120
+        assert detail["trade_plan"]["profit"] == 2.36
+        [entry] = service.list_opportunities(con, pairs=[pair], now=T0)
+        assert entry["end_reason"] == "still_open"
+        assert entry["fee_config"] == pair["fee_config"]
+        assert service.health(con, pairs=[pair], now=T0)["seconds_since_last_book"] == 0
+    finally:
+        con.close()
