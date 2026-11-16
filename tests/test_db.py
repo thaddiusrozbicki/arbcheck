@@ -62,3 +62,23 @@ def test_save_cycle_never_raises(tmp_path):
     con = db.connect(tmp_path / "a.db")
     db.save_cycle(con, [], [{"pair_id": "broken"}], [])  # missing fields, must only log
     assert con.execute("SELECT COUNT(*) FROM opportunities").fetchone()[0] == 0
+
+
+def test_backfill_replays_with_explicit_fees(tmp_path):
+    from poller.fees import ConfiguredFeeModel
+    from test_opportunities import cycle, GAP, T0
+
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    for i, record in enumerate(cycle(T0, GAP)):
+        (raw / f"{i}.json").write_text(json.dumps(record))
+    model = ConfiguredFeeModel.from_config({
+        "kalshi": {"formula": "quadratic", "rate": "0.07", "round_up_to": "0.01"},
+        "polymarket": {"formula": "notional", "rate": "0", "round_up_to": "0.0001"},
+    })
+    con = db.connect(tmp_path / "site.db")
+    try:
+        assert db.backfill(con, raw, fee_model=model) == 1
+        assert con.execute("SELECT COUNT(*) FROM opportunities").fetchone()[0] == 1
+    finally:
+        con.close()

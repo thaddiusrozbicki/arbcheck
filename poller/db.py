@@ -8,7 +8,7 @@ Raw API responses stay as files in data/raw. They don't go in here.
 
 Load gaps from data you saved before the database existed:
 
-    python -m poller.db --backfill
+    python -m poller.db --backfill --fee-config fees.json
 """
 
 import argparse
@@ -144,11 +144,11 @@ def save_cycle(con: sqlite3.Connection, books, closed, open_entries) -> None:
             pass
 
 
-def backfill(con: sqlite3.Connection, raw_dir: Path = Path("data/raw"), date: str | None = None) -> int:
+def backfill(con: sqlite3.Connection, raw_dir: Path = Path("data/raw"), date: str | None = None, *, fee_model) -> int:
     """Replay saved raw files and add any gaps the database doesn't have yet."""
     from poller.opportunities import index_raw_files, load_records, replay
 
-    entries = replay(load_records(index_raw_files(raw_dir, date)))
+    entries = replay(load_records(index_raw_files(raw_dir, date)), fee_model=fee_model)
     save_opportunities(con, entries, overwrite=False)
     con.commit()
     return len(entries)
@@ -160,12 +160,22 @@ def main(argv=None):
                         help="load gaps from saved raw data that the database doesn't have yet")
     parser.add_argument("--raw", default="data/raw", help="folder of saved raw files")
     parser.add_argument("--date", help="only backfill this UTC date, YYYY-MM-DD")
+    parser.add_argument("--fee-config", help="Explicit JSON fee rules required for backfill")
     args = parser.parse_args(argv)
+    fee_model = None
+    if args.backfill:
+        if not args.fee_config:
+            parser.error("--fee-config is required with --backfill")
+        from poller.fees import load_fee_model
+        try:
+            fee_model = load_fee_model(args.fee_config)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     con = connect()
     if args.backfill:
-        found = backfill(con, Path(args.raw), args.date)
+        found = backfill(con, Path(args.raw), args.date, fee_model=fee_model)
         print(f"Replayed saved data and found {found} gaps. New ones were added to {DB_PATH}")
     books = con.execute("SELECT COUNT(*) FROM latest_books").fetchone()[0]
     opps = con.execute("SELECT COUNT(*) FROM opportunities").fetchone()[0]
