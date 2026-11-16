@@ -129,3 +129,4 @@ def reviewed_pair_fees(pair):
     if model.rules["kalshi"].rounding != "kalshi" or model.rules["polymarket"].rounding != "polymarket":
         raise ValueError("Live fees require exchange-specific rounding policies")
     return model
+

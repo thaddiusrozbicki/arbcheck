@@ -8,6 +8,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal as D
 
+import pytest
 from poller.opportunities import (
     CycleChecker,
     OpportunityTracker,
@@ -275,6 +276,14 @@ def test_live_log_appends_closed_and_still_open(tmp_path):
     assert [line["end_reason"] for line in lines] == ["gap_closed", "still_open"]
 
 
+@pytest.mark.parametrize("invoke", [
+    lambda: CycleChecker(),
+    lambda: replay([]),
+    lambda: observe(*brief_books(), at=T0),
+])
+def test_fee_model_is_required(invoke):
+    with pytest.raises(TypeError, match="fee_model"):
+        invoke()
 
 
 def test_live_log_never_raises(tmp_path):

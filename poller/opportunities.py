@@ -29,7 +29,7 @@ from pathlib import Path
 
 from poller import fees
 from poller.orderbook import OrderBook, normalize_kalshi, normalize_polymarket
-from poller.sizing import size_direction
+from poller.sizing import FeeModel, size_direction
 
 logger = logging.getLogger(__name__)
 
